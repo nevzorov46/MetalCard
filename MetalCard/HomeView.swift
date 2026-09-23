@@ -17,6 +17,7 @@ struct HomeView: View {
     @State private var showsDetails = false
     @State private var showsThemes = false
     @State private var drag: CGSize = .zero
+    @State private var flip: Double = 0           // degrees; each fling to the side adds a half turn
     @GestureState private var holding = false     // a finger is on the open card
     #if DEBUG
     @State private var demoHold = false           // the scripted demo "holding" the card
@@ -91,7 +92,7 @@ struct HomeView: View {
         let pivot = Self.pivot(for: tilt)
         let frozen = wallet.isFrozen(card)
         return CardView(card: card, tilt: tilt, frost: frozen ? 1 : 0,
-                        showsDetails: showsDetails, lift: isHeld ? 1 : 0)
+                        showsDetails: showsDetails, lift: isHeld ? 1 : 0, flip: flip)
             // The ice grows slowly and melts faster, whatever animation the tap used —
             // this overrides it for the card alone, so the rest of the screen stays snappy.
             .animation(frozen ? .freeze : .thaw, value: frozen)
@@ -125,6 +126,10 @@ struct HomeView: View {
             .gesture(cardDrag, including: selected == nil ? .none : .all)
             .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.55), trigger: holding) { _, now in now }
             .sensoryFeedback(.selection, trigger: willClose)
+            // A knock as the card is flung over — but not when closing turns it face up again.
+            .sensoryFeedback(trigger: flip) { _, _ in
+                selected == nil ? nil : .impact(weight: .medium, intensity: 0.8)
+            }
             // If the gesture is cancelled (a call comes in), nothing calls `onEnded`;
             // settle the card here instead of leaving it tilted.
             .onChange(of: holding) { _, now in
@@ -134,8 +139,8 @@ struct HomeView: View {
             }
     }
 
-    /// Touch the open card to pick it up, drag to turn it; pull it down far enough and
-    /// it goes back into the wallet.
+    /// Touch the open card to pick it up, drag to turn it, fling it sideways to turn it over;
+    /// pull it down far enough and it goes back into the wallet.
     private var cardDrag: some Gesture {
         DragGesture(minimumDistance: 0)
             .updating($holding) { _, holding, _ in holding = true }
@@ -145,16 +150,39 @@ struct HomeView: View {
                     close()
                     return
                 }
-                // Hand the finger's speed to the spring, so a flick carries on for a moment
-                // and then swings back, instead of simply stopping.
-                let d = drag, v = value.velocity
-                let distance = d.width * d.width + d.height * d.height
-                let speed = distance > 1 ? -(v.width * d.width + v.height * d.height) / distance : 0
-                withAnimation(.interpolatingSpring(stiffness: 170, damping: 15,
-                                                   initialVelocity: min(max(speed, -6), 6))) {
-                    drag = .zero
-                }
+                release(velocity: value.velocity)
             }
+    }
+
+    /// Letting go. A fast, mostly sideways fling turns the card over; anything gentler
+    /// springs it back to rest.
+    private func release(velocity v: CGSize) {
+        if abs(v.width) > 800, abs(v.width) > abs(v.height) * 1.5 {
+            turnOver(speed: v.width)
+            // The fling's energy went into the turn, so the tilt just eases home.
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { drag = .zero }
+            return
+        }
+        // Hand the finger's speed to the spring, so a flick carries on for a moment
+        // and then swings back, instead of simply stopping.
+        let d = drag
+        let distance = d.width * d.width + d.height * d.height
+        let speed = distance > 1 ? -(v.width * d.width + v.height * d.height) / distance : 0
+        withAnimation(.interpolatingSpring(stiffness: 170, damping: 15,
+                                           initialVelocity: min(max(speed, -6), 6))) {
+            drag = .zero
+        }
+    }
+
+    /// A half turn in the direction of the fling, carrying on the way the drag was tilting it.
+    /// The finger's speed becomes the spring's starting speed, so a harder fling turns it faster.
+    private func turnOver(speed: CGFloat) {
+        // The spring counts speed in half turns per second. At the card's edge, about 170 pt
+        // from the axis, half a turn a second is 170π ≈ 530 pt/s.
+        let start = min(max(abs(speed) / 530, 1.5), 7)
+        withAnimation(.interpolatingSpring(duration: 0.7, bounce: 0.25, initialVelocity: start)) {
+            flip += speed > 0 ? 180 : -180
+        }
     }
 
     /// Moves 1:1 near zero and eases towards ±limit, like a scroll view's overscroll.
@@ -185,8 +213,12 @@ struct HomeView: View {
             selected = nil
             showsDetails = false
             drag = .zero
+            // Face up for the wallet: on to the nearest whole turn, so a card showing its back
+            // keeps turning the way it last went while it flies home.
+            flip = (flip / 360).rounded() * 360
         } completion: {
             flying = nil
+            flip = 0
         }
     }
 
@@ -367,8 +399,11 @@ struct HomeView: View {
 extension HomeView {
     /// Launch arguments for recording and for checking looks without touching the screen:
     /// `-demo` plays a scripted walkthrough (zoom in, freeze, zoom back out);
-    /// `-openFrozen` starts on the first card, already frozen;
-    /// `-startCard <id>` centres that card in the carousel; `-showThemes` opens the theme sheet.
+    /// `-openFrozen` starts on the first card, already frozen; `-openBack` starts on its back;
+    /// `-demoFlip` flings the card over left, right and left again, then closes it;
+    /// `-startCard <id>` centres that card in the carousel (and the demos use it);
+    /// `-frozen` freezes it and `-details` shows its details first;
+    /// `-showThemes` opens the theme sheet.
     func playDemoIfRequested() async {
         let arguments = ProcessInfo.processInfo.arguments
         if let i = arguments.firstIndex(of: "-startCard"), i + 1 < arguments.count {
@@ -377,12 +412,44 @@ extension HomeView {
         if arguments.contains("-showThemes") {
             showsThemes = true
         }
-        guard let card = wallet.cards.first else { return }
+        guard let card = currentCard.flatMap({ wallet.card($0) }) ?? wallet.cards.first else { return }
+        if arguments.contains("-frozen") {
+            wallet.frozen.insert(card.id)
+        }
+        if arguments.contains("-details") {
+            showsDetails = true
+        }
 
         if arguments.contains("-openFrozen") {
             wallet.frozen.insert(card.id)
             flying = card.id
             selected = card.id
+            return
+        }
+
+        if arguments.contains("-openBack") {
+            flip = 180
+            flying = card.id
+            selected = card.id
+            return
+        }
+
+        if arguments.contains("-demoFlip") {
+            try? await Task.sleep(for: .seconds(1.2))
+            open(card)
+            try? await Task.sleep(for: .seconds(1.4))
+            for direction in [-1.0, 1.0, -1.0] {
+                // A short, quick push to the side, then let go at speed.
+                demoHold = true
+                for step in 1...6 {
+                    drag = CGSize(width: direction * Double(step) * 12, height: 0)
+                    try? await Task.sleep(for: .milliseconds(16))
+                }
+                demoHold = false
+                release(velocity: CGSize(width: direction * 1800, height: 0))
+                try? await Task.sleep(for: .seconds(1.8))
+            }
+            close()
             return
         }
 

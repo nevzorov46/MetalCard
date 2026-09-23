@@ -122,6 +122,22 @@ static float frostFern(float2 q, float2 d0) {
     return half4(g, g, g, 1.0h) * color.a;
 }
 
+// MARK: - Hologram
+//
+// Foil: silver with pale rainbow bands and a fine diffraction grating. The bands slide
+// as the card turns, the way they do on a real hologram.
+
+[[ stitchable ]] half4 holo(float2 position, half4 color, float2 size, float2 tilt) {
+    float2 uv = position / size;
+    // Only part of the spectrum shows at once; turning the card runs through the rest.
+    float phase = dot(uv, float2(0.6, 0.4)) * 0.7 + tilt.x * 0.9 + tilt.y * 0.5;
+    float3 rainbow = 0.5 + 0.5 * cos(6.28318 * (phase + float3(0.0, 0.33, 0.67)));
+    float grating = sin((uv.x * 0.8 + uv.y) * 120.0 + tilt.x * 8.0);
+    float shine = exp(-pow((uv.x + uv.y - 1.0 - tilt.x * 0.8) * 2.5, 2.0));
+    float3 foil = mix(float3(0.84, 0.85, 0.88), rainbow, 0.4) + grating * 0.05 + shine * 0.15;
+    return half4(half3(saturate(foil)), 1.0h) * color.a;
+}
+
 // MARK: - Frost
 //
 // progress: 0 = no ice, 1 = fully frozen. tilt drives the glints on the crystal facets.

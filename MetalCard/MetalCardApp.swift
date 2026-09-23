@@ -26,6 +26,8 @@ struct MetalCardApp: App {
             .compile(as: .colorEffect)
         try? await ShaderLibrary.grain(.float(0), .float(0))
             .compile(as: .colorEffect)
+        try? await ShaderLibrary.holo(.float2(CGSize.zero), .float2(CGSize.zero))
+            .compile(as: .colorEffect)
     }
 }
 
