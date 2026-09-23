@@ -33,15 +33,15 @@ struct Card: Identifiable, Hashable {
     static let samples: [Card] = [
         Card(id: "everyday", name: "Everyday",
              number: "4000821093354821", expiry: "07/29", cvv: "418", holder: "VALERY NEVZOROV",
-             base: Palette.lime, ink: Palette.forest),
+             base: Palette.accent, ink: Palette.onAccent),
         Card(id: "metal", name: "Metal",
              number: "4012340056789010", expiry: "03/30", cvv: "902", holder: "VALERY NEVZOROV",
-             base: Palette.forest, ink: Palette.lime, finish: .metal),
+             base: Color(hex: 0x1E1830), ink: Color(hex: 0xCFC4FF), finish: .metal),
         Card(id: "travel", name: "Travel",
              number: "4096771830024418", expiry: "11/28", cvv: "233", holder: "VALERY NEVZOROV",
-             base: Color(hex: 0xFFC091), ink: Color(hex: 0x320707)),
+             base: Color(hex: 0xFFCFB0), ink: Color(hex: 0x3F1C0B)),
         Card(id: "online", name: "Online",
              number: "4111220033445566", expiry: "05/27", cvv: "617", holder: "VALERY NEVZOROV",
-             base: Color(hex: 0xFFD7EF), ink: Color(hex: 0x260A2F), isVirtual: true)
+             base: Color(hex: 0xFFE7A0), ink: Color(hex: 0x2E2200), isVirtual: true)
     ]
 }

@@ -10,6 +10,7 @@ struct CardView: View {
     var tilt: CGSize = .zero
     var frost: Double = 0                   // 0...1, animatable
     var showsDetails = false
+    var lift: CGFloat = 0                   // 0...1, how far the card is picked up
 
     var body: some View {
         TimelineView(.animation(paused: frost == 0)) { timeline in
@@ -22,8 +23,18 @@ struct CardView: View {
             }
         }
         .aspectRatio(Self.aspect, contentMode: .fit)
-        .shadow(color: card.ink.opacity(0.22), radius: 18, x: 0, y: 12)
-        .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
+        // A soft glow in the card's own colour, plus a short dark contact shadow. Deriving the
+        // glow from the base (not the ink) keeps it dark under cards with light lettering.
+        // The light is overhead, so the shadow slides away from the tilt, and a card that is
+        // picked up casts a longer, softer one.
+        .shadow(color: card.base.opacity(0.40 - lift * 0.08),
+                radius: 20 + lift * 14,
+                x: -tilt.width * 10,
+                y: 14 + lift * 12 - tilt.height * 6)
+        .shadow(color: .black.opacity(0.10 - lift * 0.04),
+                radius: 3 + lift * 4,
+                x: -tilt.width * 2,
+                y: 2 + lift * 4)
     }
 
     // MARK: Face
@@ -33,7 +44,15 @@ struct CardView: View {
     private func face(width w: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: w * Self.cornerRatio, style: .continuous)
         let t = tilt
+        let glare = Float(lift)
         let strength: Float = card.finish == .metal ? 0.55 : 0.14
+        // Parallax: the print sits "above" the plastic and the leaf "below" it, so they drift
+        // apart as the card turns.
+        let print = CGSize(width: tilt.width * w * 0.010, height: tilt.height * w * 0.010)
+        let under = CGSize(width: -tilt.width * w * 0.022, height: -tilt.height * w * 0.022)
+        // The rim catches the light on the side the card is turned towards.
+        let rimFrom = UnitPoint(x: 0.5 - tilt.width * 0.5, y: -tilt.height * 0.5)
+        let rimTo = UnitPoint(x: 0.5 + tilt.width * 0.5, y: 1 + tilt.height * 0.5)
 
         return shape
             .fill(card.base)
@@ -47,7 +66,7 @@ struct CardView: View {
                 LeafShape(vein: false)
                     .fill(card.ink.opacity(0.08))
                     .frame(width: w * 1.05, height: w * 1.05)
-                    .offset(x: w * 0.42, y: -w * 0.10)
+                    .offset(x: w * 0.42 + under.width, y: -w * 0.10 + under.height)
             }
             .overlay(
                 Rectangle()
@@ -56,18 +75,20 @@ struct CardView: View {
                                                      .float(card.finish == .metal ? 1 : 0)))
                     .blendMode(.overlay)
             )
-            .overlay(content(width: w))
+            .overlay(content(width: w).offset(print))
             .overlay(
                 Rectangle()
                     .fill(.white)
                     .visualEffect { view, proxy in
-                        view.colorEffect(ShaderLibrary.sheen(.float2(proxy.size), .float2(t), .float(strength)))
+                        view.colorEffect(ShaderLibrary.sheen(.float2(proxy.size), .float2(t),
+                                                             .float(strength), .float(glare)))
                     }
                     .blendMode(.plusLighter)
             )
             .overlay(
-                shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.05), .clear],
-                                                  startPoint: .top, endPoint: .bottom),
+                shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.45 + lift * 0.2),
+                                                           .white.opacity(0.05), .clear],
+                                                  startPoint: rimFrom, endPoint: rimTo),
                                    lineWidth: 1)
             )
             .frame(width: w, height: w / Self.aspect)

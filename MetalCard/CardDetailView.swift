@@ -43,7 +43,11 @@ struct CardDetailView: View {
                     if isFrozen {
                         frozenBanner
                             .padding(.bottom, 24)
-                            .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                            // Leaving, it fades fast — gone before the rows below slide up into
+                            // its place, so it never sits on top of them.
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
+                                removal: .opacity.animation(.easeOut(duration: 0.15))))
                     }
 
                     settings
@@ -95,7 +99,7 @@ struct CardDetailView: View {
             }
             action(showsDetails ? "Hide details" : "Show details",
                    symbol: showsDetails ? "eye.slash.fill" : "eye.fill",
-                   active: showsDetails, fill: Palette.lime, ink: Palette.forest) {
+                   active: showsDetails, fill: Palette.accentSoft, ink: Palette.accent) {
                 showsDetails.toggle()
             }
             action("Limits", symbol: "gauge.with.dots.needle.50percent",

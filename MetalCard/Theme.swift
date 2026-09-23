@@ -1,17 +1,20 @@
 import SwiftUI
 
-/// App palette. Each card colourway is a bright tone paired with a dark ink.
+/// App palette, named by role rather than by hue, so a new accent is a change in one place.
 enum Palette {
-    static let ink = Color(hex: 0x0E0F0C)
-    static let inkSecondary = Color(hex: 0x454745)
-    static let inkTertiary = Color(hex: 0x6A6C6A)
+    static let ink = Color(hex: 0x100C1A)
+    static let inkSecondary = Color(hex: 0x46425A)
+    static let inkTertiary = Color(hex: 0x6F6B80)
 
     static let canvas = Color.white
-    static let surface = Color(hex: 0xF0F2EC)
+    static let surface = Color(hex: 0xF2F0F7)
 
-    static let lime = Color(hex: 0x9FE870)
-    static let forest = Color(hex: 0x163300)
-    static let positive = Color(hex: 0x2F5711)
+    /// Primary buttons, the avatar, active states. A light lavender, so text on it is dark.
+    static let accent = Color(hex: 0xA898F0)
+    static let onAccent = Color(hex: 0x1E1248)
+    static let accentSoft = Color(hex: 0xEEEAFD)
+
+    static let positive = Color(hex: 0x2E7D4F)
 
     static let iceSurface = Color(hex: 0xE3F1FB)
     static let iceInk = Color(hex: 0x0B4A73)

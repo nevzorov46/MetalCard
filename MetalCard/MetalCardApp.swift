@@ -21,7 +21,7 @@ struct MetalCardApp: App {
     private static func warmUpShaders() async {
         try? await ShaderLibrary.frost(.float2(CGSize.zero), .float(0), .float(0), .float2(CGSize.zero))
             .compile(as: .layerEffect)
-        try? await ShaderLibrary.sheen(.float2(CGSize.zero), .float2(CGSize.zero), .float(0))
+        try? await ShaderLibrary.sheen(.float2(CGSize.zero), .float2(CGSize.zero), .float(0), .float(0))
             .compile(as: .colorEffect)
         try? await ShaderLibrary.grain(.float(0), .float(0))
             .compile(as: .colorEffect)

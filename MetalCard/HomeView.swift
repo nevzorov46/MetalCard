@@ -15,9 +15,24 @@ struct HomeView: View {
     @State private var flying: Card.ID?          // the hero layer is showing this card
     @State private var showsDetails = false
     @State private var drag: CGSize = .zero
+    @GestureState private var holding = false     // a finger is on the open card
+    #if DEBUG
+    @State private var demoHold = false           // the scripted demo "holding" the card
+    #endif
+
+    /// The card is picked up — by a finger, or by the scripted demo.
+    private var isHeld: Bool {
+        #if DEBUG
+        holding || demoHold
+        #else
+        holding
+        #endif
+    }
 
     /// 0...1 — how far the hero card has been pulled down towards closing.
     private var pull: CGFloat { min(max(drag.height, 0) / 260, 1) }
+    /// Past this point, letting go closes the card. A tick marks the crossing.
+    private var willClose: Bool { drag.height > 110 }
 
     static func slot(_ id: Card.ID) -> String { "slot-\(id)" }
 
@@ -67,11 +82,16 @@ struct HomeView: View {
     // MARK: Hero
 
     private func heroCard(_ card: Card) -> some View {
-        let tilt = CGSize(width: motion.tilt.width + drag.width / 160,
-                          height: motion.tilt.height + drag.height / 160)
-        return CardView(card: card, tilt: tilt, frost: wallet.isFrozen(card) ? 1 : 0, showsDetails: showsDetails)
-            .rotation3DEffect(.degrees(tilt.width * 6), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
-            .rotation3DEffect(.degrees(-tilt.height * 4), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
+        // The drag adds to the phone's own tilt, through a rubber band, so the card
+        // feels heavier the further you push it.
+        let tilt = CGSize(width: motion.tilt.width + Self.rubberBand(drag.width, limit: 140) / 100,
+                          height: motion.tilt.height + Self.rubberBand(drag.height, limit: 140) / 100)
+        let pivot = Self.pivot(for: tilt)
+        return CardView(card: card, tilt: tilt, frost: wallet.isFrozen(card) ? 1 : 0,
+                        showsDetails: showsDetails, lift: isHeld ? 1 : 0)
+            // One turn around the axis at right angles to the push — how a real card pivots
+            // when you press on a corner — rather than two turns stacked on each other.
+            .rotation3DEffect(pivot.angle, axis: pivot.axis, perspective: 0.55)
             // Follows whichever slot is the source: the carousel or the detail screen.
             .matchedGeometryEffect(id: Self.slot(card.id), in: hero, isSource: false)
             // Mid-flight the card lifts towards you — grows and leans back — then settles.
@@ -90,22 +110,59 @@ struct HomeView: View {
                     SpringKeyframe(0, duration: 0.5, spring: .smooth(duration: 0.5))
                 }
             }
-            .scaleEffect(1 - pull * 0.1)
-            .offset(y: max(drag.height, 0) * 0.5)
+            // Picked up: a touch larger. Pulled down: smaller, on its way back to the wallet.
+            .scaleEffect((isHeld ? 1.03 : 1) * (1 - pull * 0.12))
+            // It follows the finger a little sideways and upwards, and fully when pulled down.
+            .offset(x: Self.rubberBand(drag.width, limit: 36),
+                    y: drag.height > 0 ? drag.height * 0.55 : Self.rubberBand(drag.height, limit: 28))
+            .animation(.spring(response: 0.32, dampingFraction: 0.7), value: isHeld)
             .gesture(cardDrag, including: selected == nil ? .none : .all)
+            .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.55), trigger: holding) { _, now in now }
+            .sensoryFeedback(.selection, trigger: willClose)
+            // If the gesture is cancelled (a call comes in), nothing calls `onEnded`;
+            // settle the card here instead of leaving it tilted.
+            .onChange(of: holding) { _, now in
+                if !now, drag != .zero {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { drag = .zero }
+                }
+            }
     }
 
-    /// Drag the open card to tilt it; pull it down far enough and it goes back into the wallet.
+    /// Touch the open card to pick it up, drag to turn it; pull it down far enough and
+    /// it goes back into the wallet.
     private var cardDrag: some Gesture {
-        DragGesture()
+        DragGesture(minimumDistance: 0)
+            .updating($holding) { _, holding, _ in holding = true }
             .onChanged { drag = $0.translation }
             .onEnded { value in
                 if value.translation.height > 110 || value.predictedEndTranslation.height > 260 {
                     close()
-                } else {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.65)) { drag = .zero }
+                    return
+                }
+                // Hand the finger's speed to the spring, so a flick carries on for a moment
+                // and then swings back, instead of simply stopping.
+                let d = drag, v = value.velocity
+                let distance = d.width * d.width + d.height * d.height
+                let speed = distance > 1 ? -(v.width * d.width + v.height * d.height) / distance : 0
+                withAnimation(.interpolatingSpring(stiffness: 170, damping: 15,
+                                                   initialVelocity: min(max(speed, -6), 6))) {
+                    drag = .zero
                 }
             }
+    }
+
+    /// Moves 1:1 near zero and eases towards ±limit, like a scroll view's overscroll.
+    private static func rubberBand(_ x: CGFloat, limit: CGFloat) -> CGFloat {
+        let sign: CGFloat = x < 0 ? -1 : 1
+        return sign * limit * (1 - 1 / (1 + abs(x) / limit))
+    }
+
+    /// A single rotation around the axis perpendicular to the tilt.
+    private static func pivot(for tilt: CGSize) -> (angle: Angle, axis: (x: CGFloat, y: CGFloat, z: CGFloat)) {
+        let magnitude = (tilt.width * tilt.width + tilt.height * tilt.height).squareRoot()
+        guard magnitude > 0.0001 else { return (.zero, (x: 0, y: 1, z: 0)) }
+        return (.degrees(min(magnitude, 1.4) * 9),
+                (x: -tilt.height / magnitude, y: tilt.width / magnitude, z: 0))
     }
 
     private func open(_ card: Card) {
@@ -133,9 +190,9 @@ struct HomeView: View {
         HStack(spacing: 10) {
             Text("VN")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Palette.forest)
+                .foregroundStyle(Palette.onAccent)
                 .frame(width: 44, height: 44)
-                .background(Palette.lime, in: Circle())
+                .background(Palette.accent, in: Circle())
             Spacer()
             roundIcon("magnifyingglass")
             roundIcon("bell.fill")
@@ -184,10 +241,10 @@ struct HomeView: View {
             Image(systemName: symbol).font(.system(size: 13, weight: .bold))
             Text(title).font(.system(size: 15, weight: .semibold))
         }
-        .foregroundStyle(primary ? Palette.forest : Palette.ink)
+        .foregroundStyle(primary ? Palette.onAccent : Palette.ink)
         .padding(.horizontal, 16)
         .frame(height: 44)
-        .background(primary ? Palette.lime : Palette.surface, in: Capsule())
+        .background(primary ? Palette.accent : Palette.surface, in: Capsule())
     }
 
     private func sectionTitle(_ title: String, trailing: String) -> some View {
@@ -298,15 +355,37 @@ struct HomeView: View {
 extension HomeView {
     /// Launch arguments for recording and for checking looks without touching the screen:
     /// `-demo` plays a scripted walkthrough (zoom in, freeze, zoom back out);
-    /// `-openFrozen` starts on the first card, already frozen.
+    /// `-openFrozen` starts on the first card, already frozen;
+    /// `-startCard <id>` centres that card in the carousel.
     func playDemoIfRequested() async {
         let arguments = ProcessInfo.processInfo.arguments
+        if let i = arguments.firstIndex(of: "-startCard"), i + 1 < arguments.count {
+            currentCard = arguments[i + 1]
+        }
         guard let card = wallet.cards.first else { return }
 
         if arguments.contains("-openFrozen") {
             wallet.frozen.insert(card.id)
             flying = card.id
             selected = card.id
+            return
+        }
+
+        if arguments.contains("-demoTilt") {
+            // Pick the card up and trace a slow figure of eight, as a finger would.
+            try? await Task.sleep(for: .seconds(1.2))
+            open(card)
+            try? await Task.sleep(for: .seconds(1.2))
+            demoHold = true
+            try? await Task.sleep(for: .seconds(0.3))
+            let steps = 120
+            for i in 0...steps {
+                let a = Double(i) / Double(steps) * 2 * .pi
+                drag = CGSize(width: sin(a) * 120, height: sin(2 * a) * 60)
+                try? await Task.sleep(for: .milliseconds(22))
+            }
+            demoHold = false
+            withAnimation(.interpolatingSpring(stiffness: 170, damping: 15)) { drag = .zero }
             return
         }
 

@@ -86,7 +86,11 @@ static float frostFern(float2 q, float2 d0) {
 //
 // Composited with .plusLighter, so it only ever adds light.
 
-[[ stitchable ]] half4 sheen(float2 position, half4 color, float2 size, float2 tilt, float strength) {
+// glare: 0...1 — how strongly the card is being held. It fades in a broad highlight that
+// slides the opposite way to the tilt, like light catching a glossy object as it turns.
+
+[[ stitchable ]] half4 sheen(float2 position, half4 color, float2 size, float2 tilt,
+                             float strength, float glare) {
     float2 uv = position / size;
 
     // At rest the light grazes the top-left corner; tilting sweeps it across the card.
@@ -96,7 +100,12 @@ static float frostFern(float2 q, float2 d0) {
     // A wide soft falloff plus a narrower core.
     float spec = 0.6 * exp(-pow(band * 3.2, 2.0)) + 0.4 * exp(-pow(band * 10.0, 2.0));
 
-    half a = half(clamp(spec * strength, 0.0, 1.0));
+    // Measured in card heights on both axes, so the glare is round rather than stretched.
+    float2 centre = float2(0.5, 0.5) - tilt * float2(0.55, 0.45);
+    float2 d = (uv - centre) * float2(size.x / size.y, 1.0);
+    float spot = exp(-dot(d, d) * 3.5) * glare;
+
+    half a = half(clamp(spec * strength + spot * 0.22, 0.0, 1.0));
     return half4(a, a, a, a) * color.a;
 }
 
