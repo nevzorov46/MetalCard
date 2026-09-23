@@ -152,9 +152,9 @@ static float frostFern(float2 q, float2 d0) {
     // Crystals shoot out ahead of the frozen area, so the front is spiky, not a clean cut.
     // Pixels beyond their reach can skip the expensive part.
     const float reach = 0.25;
-    // Starts just short of the lowest field value (edge, lobes and needle reach combined),
-    // so progress 0 means no ice at all, and ends past the highest.
-    float front = progress * 2.6 - 0.85;
+    // Starts where the most advanced needle tips sit, so the first crystals show as soon as
+    // progress leaves 0, and ends past the highest field value, so 1 covers the whole card.
+    float front = progress * 2.5 - 0.72;
     if (field > front + reach) {
         return base;
     }

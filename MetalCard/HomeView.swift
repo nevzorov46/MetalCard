@@ -87,8 +87,12 @@ struct HomeView: View {
         let tilt = CGSize(width: motion.tilt.width + Self.rubberBand(drag.width, limit: 140) / 100,
                           height: motion.tilt.height + Self.rubberBand(drag.height, limit: 140) / 100)
         let pivot = Self.pivot(for: tilt)
-        return CardView(card: card, tilt: tilt, frost: wallet.isFrozen(card) ? 1 : 0,
+        let frozen = wallet.isFrozen(card)
+        return CardView(card: card, tilt: tilt, frost: frozen ? 1 : 0,
                         showsDetails: showsDetails, lift: isHeld ? 1 : 0)
+            // The ice grows slowly and melts faster, whatever animation the tap used —
+            // this overrides it for the card alone, so the rest of the screen stays snappy.
+            .animation(frozen ? .freeze : .thaw, value: frozen)
             // One turn around the axis at right angles to the push — how a real card pivots
             // when you press on a corner — rather than two turns stacked on each other.
             .rotation3DEffect(pivot.angle, axis: pivot.axis, perspective: 0.55)
@@ -393,7 +397,7 @@ extension HomeView {
         try? await Task.sleep(for: .seconds(1.5))
         open(card)
         try? await Task.sleep(for: .seconds(1.6))
-        withAnimation(.freeze) { wallet.toggleFreeze(card) }
+        withAnimation(.snappy) { wallet.toggleFreeze(card) }
         try? await Task.sleep(for: .seconds(4.2))
         close()
     }

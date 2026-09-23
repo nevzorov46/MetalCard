@@ -38,8 +38,9 @@ extension Font {
 }
 
 extension Animation {
-    /// Ice creeps in slowly, picks up speed, then settles — so the whole growth is visible.
-    static let freeze = Animation.easeInOut(duration: 2.8)
+    /// Ice starts forming the moment you tap, then slows as it covers the card —
+    /// a quick start reads as a response, a long finish lets the growth be seen.
+    static let freeze = Animation.timingCurve(0.2, 0.15, 0.3, 1.0, duration: 2.6)
     /// Melting is quicker than freezing.
     static let thaw = Animation.easeIn(duration: 0.9)
 }

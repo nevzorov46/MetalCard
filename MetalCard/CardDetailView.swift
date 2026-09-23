@@ -43,10 +43,11 @@ struct CardDetailView: View {
                     if isFrozen {
                         frozenBanner
                             .padding(.bottom, 24)
-                            // Leaving, it fades fast — gone before the rows below slide up into
-                            // its place, so it never sits on top of them.
+                            // Arriving, it waits a beat for the rows below to make room; leaving,
+                            // it fades before they slide up. Either way it never sits on top of them.
                             .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
+                                insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top))
+                                    .animation(.snappy.delay(0.1)),
                                 removal: .opacity.animation(.easeOut(duration: 0.15))))
                     }
 
@@ -91,11 +92,9 @@ struct CardDetailView: View {
         HStack(alignment: .top, spacing: 0) {
             action(isFrozen ? "Unfreeze" : "Freeze", symbol: "snowflake",
                    active: isFrozen, fill: Palette.iceSurface, ink: Palette.iceInk) {
-                if isFrozen {
-                    withAnimation(.thaw) { wallet.toggleFreeze(card) }
-                } else {
-                    withAnimation(.freeze) { wallet.toggleFreeze(card) }
-                }
+                // The interface answers at once; only the ice itself takes its time,
+                // on the card's own animation (see `HomeView.heroCard`).
+                withAnimation(.snappy) { wallet.toggleFreeze(card) }
             }
             action(showsDetails ? "Hide details" : "Show details",
                    symbol: showsDetails ? "eye.slash.fill" : "eye.fill",
