@@ -2,6 +2,12 @@ import SwiftUI
 
 /// A card in the wallet. The numbers are made up and fail the Luhn check on purpose.
 struct Card: Identifiable, Hashable {
+    /// Which of the theme's colourways the card wears. The colours themselves live in
+    /// `Theme`, so a new theme recolours every card without touching this list.
+    enum Style: Hashable {
+        case primary, metal, secondary, tertiary
+    }
+
     enum Finish: Hashable {
         case matte
         case metal
@@ -13,11 +19,10 @@ struct Card: Identifiable, Hashable {
     var expiry: String
     var cvv: String
     var holder: String
-    var base: Color
-    var ink: Color
-    var finish: Finish = .matte
+    var style: Style
     var isVirtual = false
 
+    var finish: Finish { style == .metal ? .metal : .matte }
     var last4: String { String(number.suffix(4)) }
 
     var groupedNumber: String {
@@ -33,15 +38,15 @@ struct Card: Identifiable, Hashable {
     static let samples: [Card] = [
         Card(id: "everyday", name: "Everyday",
              number: "4000821093354821", expiry: "07/29", cvv: "418", holder: "VALERY NEVZOROV",
-             base: Palette.accent, ink: Palette.onAccent),
+             style: .primary),
         Card(id: "metal", name: "Metal",
              number: "4012340056789010", expiry: "03/30", cvv: "902", holder: "VALERY NEVZOROV",
-             base: Color(hex: 0x1E1830), ink: Color(hex: 0xCFC4FF), finish: .metal),
+             style: .metal),
         Card(id: "travel", name: "Travel",
              number: "4096771830024418", expiry: "11/28", cvv: "233", holder: "VALERY NEVZOROV",
-             base: Color(hex: 0xFFCFB0), ink: Color(hex: 0x3F1C0B)),
+             style: .secondary),
         Card(id: "online", name: "Online",
              number: "4111220033445566", expiry: "05/27", cvv: "617", holder: "VALERY NEVZOROV",
-             base: Color(hex: 0xFFE7A0), ink: Color(hex: 0x2E2200), isVirtual: true)
+             style: .tertiary, isVirtual: true)
     ]
 }

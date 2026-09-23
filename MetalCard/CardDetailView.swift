@@ -10,6 +10,7 @@ struct CardDetailView: View {
     var onClose: () -> Void
 
     @Environment(Wallet.self) private var wallet
+    @Environment(\.theme) private var palette
     @State private var appeared = false
 
     private var isFrozen: Bool { wallet.isFrozen(card) }
@@ -31,10 +32,10 @@ struct CardDetailView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(card.name) card")
                             .font(.display(36))
-                            .foregroundStyle(Palette.ink)
+                            .foregroundStyle(palette.ink)
                         Text("\(card.kindLabel) · •• \(card.last4)")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Palette.inkTertiary)
+                            .foregroundStyle(palette.inkTertiary)
                     }
                     .padding(.bottom, 24)
 
@@ -61,7 +62,7 @@ struct CardDetailView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .background(Palette.canvas)
+        .background(palette.canvas)
         .onAppear {
             withAnimation(.spring(response: 0.55, dampingFraction: 0.86).delay(0.12)) { appeared = true }
         }
@@ -76,9 +77,9 @@ struct CardDetailView: View {
             Button(action: onClose) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(palette.ink)
                     .frame(width: 44, height: 44)
-                    .background(Palette.surface, in: Circle())
+                    .background(palette.surface, in: Circle())
             }
             .buttonStyle(.plain)
             Spacer()
@@ -91,20 +92,20 @@ struct CardDetailView: View {
     private var actions: some View {
         HStack(alignment: .top, spacing: 0) {
             action(isFrozen ? "Unfreeze" : "Freeze", symbol: "snowflake",
-                   active: isFrozen, fill: Palette.iceSurface, ink: Palette.iceInk) {
+                   active: isFrozen, fill: palette.iceSurface, ink: palette.iceInk) {
                 // The interface answers at once; only the ice itself takes its time,
                 // on the card's own animation (see `HomeView.heroCard`).
                 withAnimation(.snappy) { wallet.toggleFreeze(card) }
             }
             action(showsDetails ? "Hide details" : "Show details",
                    symbol: showsDetails ? "eye.slash.fill" : "eye.fill",
-                   active: showsDetails, fill: Palette.accentSoft, ink: Palette.accent) {
+                   active: showsDetails, fill: palette.accentSoft, ink: palette.accent) {
                 showsDetails.toggle()
             }
             action("Limits", symbol: "gauge.with.dots.needle.50percent",
-                   active: false, fill: Palette.surface, ink: Palette.ink) {}
+                   active: false, fill: palette.surface, ink: palette.ink) {}
             action("Settings", symbol: "gearshape.fill",
-                   active: false, fill: Palette.surface, ink: Palette.ink) {}
+                   active: false, fill: palette.surface, ink: palette.ink) {}
         }
     }
 
@@ -115,12 +116,12 @@ struct CardDetailView: View {
                 Image(systemName: symbol)
                     .font(.system(size: 20, weight: .semibold))
                     .symbolEffect(.bounce, value: active)
-                    .foregroundStyle(active ? ink : Palette.ink)
+                    .foregroundStyle(active ? ink : palette.ink)
                     .frame(width: 58, height: 58)
-                    .background(active ? fill : Palette.surface, in: Circle())
+                    .background(active ? fill : palette.surface, in: Circle())
                 Text(title)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(palette.inkSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .contentTransition(.interpolate)
@@ -134,19 +135,19 @@ struct CardDetailView: View {
         HStack(spacing: 14) {
             Image(systemName: "snowflake")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(Palette.iceInk)
+                .foregroundStyle(palette.iceInk)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Card frozen")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(palette.ink)
                 Text("Payments are paused. Unfreeze any time.")
                     .font(.system(size: 14))
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(palette.inkSecondary)
             }
             Spacer(minLength: 0)
         }
         .padding(16)
-        .background(Palette.iceSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(palette.iceSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     // MARK: Settings
@@ -164,23 +165,23 @@ struct CardDetailView: View {
         HStack(spacing: 14) {
             Image(systemName: symbol)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(palette.ink)
                 .frame(width: 46, height: 46)
-                .background(Palette.surface, in: Circle())
+                .background(palette.surface, in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(palette.ink)
                 if let detail {
                     Text(detail)
                         .font(.system(size: 14))
-                        .foregroundStyle(Palette.inkTertiary)
+                        .foregroundStyle(palette.inkTertiary)
                 }
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Palette.inkTertiary)
+                .foregroundStyle(palette.inkTertiary)
         }
     }
 }

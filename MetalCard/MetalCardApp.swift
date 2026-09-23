@@ -4,13 +4,14 @@ import SwiftUI
 struct MetalCardApp: App {
     @State private var wallet = Wallet()
     @State private var motion = MotionTilt()
+    @State private var appearance = Appearance()
 
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            RootView()
                 .environment(wallet)
                 .environment(motion)
-                .preferredColorScheme(.light)
+                .environment(appearance)
                 .onAppear { motion.start() }
                 .task { await Self.warmUpShaders() }
         }
@@ -25,5 +26,19 @@ struct MetalCardApp: App {
             .compile(as: .colorEffect)
         try? await ShaderLibrary.grain(.float(0), .float(0))
             .compile(as: .colorEffect)
+    }
+}
+
+/// Puts the chosen theme into the environment. A view rather than the scene, so that
+/// reading `appearance` is tracked and a new theme re-renders everything below it.
+private struct RootView: View {
+    @Environment(Appearance.self) private var appearance
+
+    var body: some View {
+        let theme = appearance.theme
+        HomeView()
+            .environment(\.theme, theme)
+            .preferredColorScheme(theme.isDark ? .dark : .light)
+            .tint(theme.accent)
     }
 }

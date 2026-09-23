@@ -8,12 +8,14 @@ import SwiftUI
 struct HomeView: View {
     @Environment(Wallet.self) private var wallet
     @Environment(MotionTilt.self) private var motion
+    @Environment(\.theme) private var palette
     @Namespace private var hero
 
     @State private var currentCard: Card.ID?
     @State private var selected: Card.ID?        // the detail screen is showing this card
     @State private var flying: Card.ID?          // the hero layer is showing this card
     @State private var showsDetails = false
+    @State private var showsThemes = false
     @State private var drag: CGSize = .zero
     @GestureState private var holding = false     // a finger is on the open card
     #if DEBUG
@@ -53,7 +55,7 @@ struct HomeView: View {
                     .zIndex(2)
             }
         }
-        .background(Palette.canvas)
+        .background(palette.canvas)
         .sensoryFeedback(.impact(weight: .light), trigger: selected)
         .onAppear { currentCard = currentCard ?? wallet.cards.first?.id }
         #if DEBUG
@@ -194,22 +196,28 @@ struct HomeView: View {
         HStack(spacing: 10) {
             Text("VN")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Palette.onAccent)
+                .foregroundStyle(palette.onAccent)
                 .frame(width: 44, height: 44)
-                .background(Palette.accent, in: Circle())
+                .background(palette.accent, in: Circle())
             Spacer()
-            roundIcon("magnifyingglass")
+            Button { showsThemes = true } label: { roundIcon("paintpalette.fill") }
+                .buttonStyle(.plain)
             roundIcon("bell.fill")
         }
         .padding(.horizontal, 24)
+        .sheet(isPresented: $showsThemes) {
+            ThemePicker()
+                .presentationDetents([.height(330)])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private func roundIcon(_ symbol: String) -> some View {
         Image(systemName: symbol)
             .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(Palette.ink)
+            .foregroundStyle(palette.ink)
             .frame(width: 44, height: 44)
-            .background(Palette.surface, in: Circle())
+            .background(palette.surface, in: Circle())
     }
 
     // MARK: Balance
@@ -218,14 +226,14 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Total balance")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Palette.inkTertiary)
+                .foregroundStyle(palette.inkTertiary)
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("€12,480")
                     .font(.display(58))
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(palette.ink)
                 Text(".20")
                     .font(.display(34))
-                    .foregroundStyle(Palette.inkTertiary)
+                    .foregroundStyle(palette.inkTertiary)
             }
         }
         .padding(.horizontal, 24)
@@ -245,21 +253,21 @@ struct HomeView: View {
             Image(systemName: symbol).font(.system(size: 13, weight: .bold))
             Text(title).font(.system(size: 15, weight: .semibold))
         }
-        .foregroundStyle(primary ? Palette.onAccent : Palette.ink)
+        .foregroundStyle(primary ? palette.onAccent : palette.ink)
         .padding(.horizontal, 16)
         .frame(height: 44)
-        .background(primary ? Palette.accent : Palette.surface, in: Capsule())
+        .background(primary ? palette.accent : palette.surface, in: Capsule())
     }
 
     private func sectionTitle(_ title: String, trailing: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
                 .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(palette.ink)
             Spacer()
             Text(trailing)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Palette.inkTertiary)
+                .foregroundStyle(palette.inkTertiary)
         }
         .padding(.horizontal, 24)
     }
@@ -317,7 +325,7 @@ struct HomeView: View {
             ForEach(wallet.cards) { card in
                 let active = card.id == currentCard
                 Capsule()
-                    .fill(active ? Palette.ink : Palette.ink.opacity(0.16))
+                    .fill(active ? palette.ink : palette.ink.opacity(0.16))
                     .frame(width: active ? 20 : 6, height: 6)
             }
         }
@@ -333,21 +341,21 @@ struct HomeView: View {
                 HStack(spacing: 14) {
                     Image(systemName: tx.symbol)
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(palette.ink)
                         .frame(width: 48, height: 48)
-                        .background(Palette.surface, in: Circle())
+                        .background(palette.surface, in: Circle())
                     VStack(alignment: .leading, spacing: 3) {
                         Text(tx.title)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Palette.ink)
+                            .foregroundStyle(palette.ink)
                         Text(tx.subtitle)
                             .font(.system(size: 14))
-                            .foregroundStyle(Palette.inkTertiary)
+                            .foregroundStyle(palette.inkTertiary)
                     }
                     Spacer()
                     Text(tx.amount)
                         .font(.system(size: 16, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(tx.incoming ? Palette.positive : Palette.ink)
+                        .foregroundStyle(tx.incoming ? palette.positive : palette.ink)
                 }
             }
         }
@@ -360,11 +368,14 @@ extension HomeView {
     /// Launch arguments for recording and for checking looks without touching the screen:
     /// `-demo` plays a scripted walkthrough (zoom in, freeze, zoom back out);
     /// `-openFrozen` starts on the first card, already frozen;
-    /// `-startCard <id>` centres that card in the carousel.
+    /// `-startCard <id>` centres that card in the carousel; `-showThemes` opens the theme sheet.
     func playDemoIfRequested() async {
         let arguments = ProcessInfo.processInfo.arguments
         if let i = arguments.firstIndex(of: "-startCard"), i + 1 < arguments.count {
             currentCard = arguments[i + 1]
+        }
+        if arguments.contains("-showThemes") {
+            showsThemes = true
         }
         guard let card = wallet.cards.first else { return }
 

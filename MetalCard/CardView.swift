@@ -12,6 +12,10 @@ struct CardView: View {
     var showsDetails = false
     var lift: CGFloat = 0                   // 0...1, how far the card is picked up
 
+    @Environment(\.theme) private var palette
+    private var base: Color { palette.colourway(card.style).base }
+    private var ink: Color { palette.colourway(card.style).ink }
+
     var body: some View {
         TimelineView(.animation(paused: frost == 0)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1000)
@@ -27,7 +31,7 @@ struct CardView: View {
         // glow from the base (not the ink) keeps it dark under cards with light lettering.
         // The light is overhead, so the shadow slides away from the tilt, and a card that is
         // picked up casts a longer, softer one.
-        .shadow(color: card.base.opacity(0.40 - lift * 0.08),
+        .shadow(color: base.opacity(0.40 - lift * 0.08),
                 radius: 20 + lift * 14,
                 x: -tilt.width * 10,
                 y: 14 + lift * 12 - tilt.height * 6)
@@ -55,7 +59,7 @@ struct CardView: View {
         let rimTo = UnitPoint(x: 0.5 + tilt.width * 0.5, y: 1 + tilt.height * 0.5)
 
         return shape
-            .fill(card.base)
+            .fill(base)
             // Gentle light falloff, so the plastic reads as a physical object.
             .overlay(
                 shape.fill(LinearGradient(colors: [.white.opacity(0.10), .clear, .black.opacity(0.08)],
@@ -64,7 +68,7 @@ struct CardView: View {
             // An oversized leaf, tone on tone, sweeping off the right edge.
             .overlay(alignment: .topLeading) {
                 LeafShape(vein: false)
-                    .fill(card.ink.opacity(0.08))
+                    .fill(ink.opacity(0.08))
                     .frame(width: w * 1.05, height: w * 1.05)
                     .offset(x: w * 0.42 + under.width, y: -w * 0.10 + under.height)
             }
@@ -99,7 +103,7 @@ struct CardView: View {
     private func content(width w: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center) {
-                BrandMark(size: w * 0.068, color: card.ink)
+                BrandMark(size: w * 0.068, color: ink)
                 Spacer()
                 Image(systemName: "wave.3.right")
                     .font(.system(size: w * 0.052, weight: .semibold))
@@ -114,7 +118,7 @@ struct CardView: View {
                     .tracking(w * 0.006)
                     .padding(.horizontal, w * 0.025)
                     .padding(.vertical, w * 0.012)
-                    .overlay(Capsule().strokeBorder(card.ink.opacity(0.5), lineWidth: 1))
+                    .overlay(Capsule().strokeBorder(ink.opacity(0.5), lineWidth: 1))
             } else {
                 ChipView(width: w * 0.125)
             }
@@ -139,7 +143,7 @@ struct CardView: View {
                     .italic()
             }
         }
-        .foregroundStyle(card.ink)
+        .foregroundStyle(ink)
         .padding(w * 0.064)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -154,7 +158,9 @@ struct CardView: View {
                     Text("Frozen")
                 }
                 .font(.system(size: w * 0.036, weight: .bold))
-                .foregroundStyle(Palette.iceInk)
+                // Always on a white pill, so always the dark ice ink — the theme's own
+                // ice ink is light in the dark theme and would vanish here.
+                .foregroundStyle(Color(hex: 0x0B4A73))
                 .padding(.horizontal, w * 0.032)
                 .padding(.vertical, w * 0.017)
                 .background(.white.opacity(0.92), in: Capsule())
