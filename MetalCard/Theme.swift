@@ -50,8 +50,8 @@ extension Theme {
     static func named(_ id: String) -> Theme { all.first { $0.id == id } ?? .lavender }
 
     static let lavender = light(id: "lavender", name: "Lavender", surface: 0xF2F0F7,
-                                accent: 0xA898F0, onAccent: 0x1E1248, accentSoft: 0xEEEAFD,
-                                primary: (0xA898F0, 0x1E1248), metal: (0x1E1830, 0xCFC4FF),
+                                accent: 0xC4B9F5, onAccent: 0x1E1248, accentSoft: 0xF3F0FE,
+                                primary: (0xC4B9F5, 0x1E1248), metal: (0x1E1830, 0xCFC4FF),
                                 secondary: (0xFFCFB0, 0x3F1C0B), tertiary: (0xFFE7A0, 0x2E2200))
 
     static let tangerine = light(id: "tangerine", name: "Tangerine", surface: 0xF6F1EC,
