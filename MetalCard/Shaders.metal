@@ -5,6 +5,7 @@
 //  Stitchable shaders for SwiftUI's .colorEffect / .layerEffect:
 //   - sheen: a soft specular band that follows the phone's tilt
 //   - grain: print grain for matte cards, brushed hairlines for metal
+//   - holo: holographic foil for the back of the card
 //   - frost: ice growing in from the edges; it refracts, blurs and cools the card under it
 //
 
@@ -80,6 +81,15 @@ static float frostFern(float2 q, float2 d0) {
     float barbA = needles(q, d1, 28.0, 4.5, float2(13.1, 7.7), 3);
     float barbB = needles(q, d2, 28.0, 4.5, float2(3.3, 21.9), 3);
     return max(trunk, max(barbA, barbB) * 0.8);
+}
+
+// Ice has a colour of its own, whatever it covers: deep slate over dark cards,
+// steel blue over mid tones, pale blue over light ones.
+static half3 iceColour(half lum) {
+    half3 deep = half3(0.20h, 0.31h, 0.44h);
+    half3 steel = half3(0.52h, 0.65h, 0.78h);
+    half3 pale = half3(0.82h, 0.90h, 0.97h);
+    return lum < 0.5h ? mix(deep, steel, lum * 2.0h) : mix(steel, pale, lum * 2.0h - 1.0h);
 }
 
 // MARK: - Sheen
@@ -215,20 +225,25 @@ static float frostFern(float2 q, float2 d0) {
     half k = half(thickness);
     half3 rgb = mix(straight, under, k);
 
-    // Cold: drain most of the colour and push it towards blue-white.
+    // Cold: the ice's own blue-grey takes over, keeping only a trace of the card's hue.
+    // It tints the thin veil in the middle too, a little less than the rime at the edges.
+    half tint = half(ice * mix(1.0, 0.65, smoothstep(0.05, 1.0, edge)));
     half lum = dot(rgb, half3(0.299h, 0.587h, 0.114h));
-    half3 cold = mix(half3(lum), rgb, 0.3h) * half3(0.88h, 0.95h, 1.0h) + half3(0.05h, 0.07h, 0.09h);
-    rgb = mix(rgb, cold, k * 0.85h);
+    half3 cold = mix(iceColour(lum), rgb, 0.1h);
+    rgb = mix(rgb, cold, tint * 0.95h);
 
-    // Milky haze.
-    rgb = mix(rgb, half3(0.94h, 0.97h, 1.0h), k * 0.38h);
+    // Milky haze, faintly blue.
+    rgb = mix(rgb, half3(0.84h, 0.91h, 0.97h), k * 0.34h);
+
+    // Thick ice is bluer between the crystals, which gives the white feathers depth.
+    rgb *= mix(half3(1.0h), half3(0.86h, 0.93h, 1.0h), k * 0.6h);
 
     // Sugar-fine grain: frost is made of tiny crystals, not a smooth film.
     rgb += half3(half((hash21(floor(position * 2.5)) - 0.5) * 0.10 * thickness));
 
-    // White crystals on top.
+    // Crystals on top: white, with a cold cast.
     float c = smoothstep(0.12, 0.45, crystals) * thickness;
-    rgb = mix(rgb, half3(0.98h, 0.99h, 1.0h), half(c) * 0.85h);
+    rgb = mix(rgb, half3(0.93h, 0.97h, 1.0h), half(c) * 0.85h);
 
     // The crystals catch the light as the phone tilts.
     float glint = pow(saturate(0.5 + 0.5 * dot(normalize(warp + 0.0001), normalize(tilt + float2(0.0001, -0.3)))), 6.0);
@@ -236,7 +251,7 @@ static float frostFern(float2 q, float2 d0) {
 
     // A bright rim where new ice is still forming.
     float rim = smoothstep(front - 0.12, front - 0.02, field) * ice;
-    rgb = mix(rgb, half3(1.0h), half(rim * 0.55));
+    rgb = mix(rgb, half3(0.94h, 0.97h, 1.0h), half(rim * 0.55));
 
     // A few sparkles, only on crystals, twinkling with time and tilt.
     float s = hash21(floor(position * 0.7));
