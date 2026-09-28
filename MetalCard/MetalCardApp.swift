@@ -12,7 +12,12 @@ struct MetalCardApp: App {
                 .environment(wallet)
                 .environment(motion)
                 .environment(appearance)
-                .onAppear { motion.start() }
+                .onAppear {
+                    motion.start()
+                    #if DEBUG
+                    TouchIndicators.installIfRequested()
+                    #endif
+                }
                 .task { await Self.warmUpShaders() }
         }
     }
