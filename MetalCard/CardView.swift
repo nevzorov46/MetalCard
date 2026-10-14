@@ -33,8 +33,8 @@ struct CardView: View, Animatable {
             let time = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1000)
             GeometryReader { geo in
                 let w = geo.size.width
-                face(width: w, back: side.isBack, light: light)
-                    .modifier(FrostEffect(progress: frost, tilt: light, time: time))
+                face(width: w, back: side.isBack, light: light, frostTime: time)
+                    
                     .overlay(alignment: .topTrailing) { frozenBadge(width: w) }
                     .rotation3DEffect(.degrees(side.angle), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
             }
@@ -67,7 +67,7 @@ struct CardView: View, Animatable {
     // Built as overlays on the base fill: overlays never change the size of what they sit on,
     // so the oversized decorative leaf can't push the layout around. Both sides share the
     // plastic — fill, grain, sheen, rim — and differ only in what is printed on it.
-    private func face(width w: CGFloat, back: Bool, light: CGSize) -> some View {
+    private func face(width w: CGFloat, back: Bool, light: CGSize, frostTime: Double) -> some View {
         let shape = RoundedRectangle(cornerRadius: w * Self.cornerRatio, style: .continuous)
         let glare = Float(lift)
         let strength: Float = card.finish == .metal ? 0.55 : 0.14
@@ -83,12 +83,15 @@ struct CardView: View, Animatable {
             .frame(width: w * 1.05, height: w * 1.05)
 
         return shape
-            .fill(base)
-            // Gentle light falloff, so the plastic reads as a physical object.
-            .overlay(
-                shape.fill(LinearGradient(colors: [.white.opacity(0.10), .clear, .black.opacity(0.08)],
-                                          startPoint: .topLeading, endPoint: .bottomTrailing))
-            )
+            .fill(base)     // shows through only if Metal is unavailable
+            .overlay {
+                CardSurface(finish: card.finish, base: base,
+                            environment: .init(sky: palette.canvas,
+                                               bounce: palette.accent,
+                                               ground: palette.surface.darkened(0.45)),
+                            tilt: light, glare: lift, frost: frost)
+                    .clipShape(shape)
+            }
             // An oversized leaf, tone on tone, sweeping off the right edge of the front.
             // The back shows the same leaf from behind: mirrored, off the left edge.
             .overlay(alignment: .topLeading) {
@@ -101,30 +104,17 @@ struct CardView: View, Animatable {
                         .transition(.identity)
                 }
             }
-            .overlay(
-                Rectangle()
-                    .fill(.white)
-                    .colorEffect(ShaderLibrary.grain(.float(card.finish == .metal ? 0.24 : 0.10),
-                                                     .float(card.finish == .metal ? 1 : 0)))
-                    .blendMode(.overlay)
-            )
             // Swapped outright, never cross-faded: the card is edge-on when it happens.
             .overlay {
-                if back {
-                    backPrint(width: w, light: light).offset(print).transition(.identity)
-                } else {
-                    frontPrint(width: w).offset(print).transition(.identity)
-                }
-            }
-            .overlay(
-                Rectangle()
-                    .fill(.white)
-                    .visualEffect { view, proxy in
-                        view.colorEffect(ShaderLibrary.sheen(.float2(proxy.size), .float2(light),
-                                                             .float(strength), .float(glare)))
+                Group {
+                    if back {
+                        backPrint(width: w, light: light).offset(print).transition(.identity)
+                    } else {
+                        frontPrint(width: w).offset(print).transition(.identity)
                     }
-                    .blendMode(.plusLighter)
-            )
+                }
+                .modifier(FrostEffect(progress: frost, tilt: light, time: frostTime))
+            }
             .overlay(
                 shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.45 + lift * 0.2),
                                                            .white.opacity(0.05), .clear],

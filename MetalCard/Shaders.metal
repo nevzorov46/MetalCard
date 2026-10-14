@@ -3,8 +3,6 @@
 //  MetalCard
 //
 //  Stitchable shaders for SwiftUI's .colorEffect / .layerEffect:
-//   - sheen: a soft specular band that follows the phone's tilt
-//   - grain: print grain for matte cards, brushed hairlines for metal
 //   - holo: holographic foil for the back of the card
 //   - frost: ice growing in from the edges; it refracts, blurs and cools the card under it
 //
@@ -99,38 +97,10 @@ static half3 iceColour(half lum) {
 // glare: 0...1 — how strongly the card is being held. It fades in a broad highlight that
 // slides the opposite way to the tilt, like light catching a glossy object as it turns.
 
-[[ stitchable ]] half4 sheen(float2 position, half4 color, float2 size, float2 tilt,
-                             float strength, float glare) {
-    float2 uv = position / size;
-
-    // At rest the light grazes the top-left corner; tilting sweeps it across the card.
-    float2 light = float2(0.22, 0.18) + tilt * float2(0.7, 0.6);
-    float band = dot(normalize(float2(1.0, 0.8)), uv - light);
-
-    // A wide soft falloff plus a narrower core.
-    float spec = 0.6 * exp(-pow(band * 3.2, 2.0)) + 0.4 * exp(-pow(band * 10.0, 2.0));
-
-    // Measured in card heights on both axes, so the glare is round rather than stretched.
-    float2 centre = float2(0.5, 0.5) - tilt * float2(0.55, 0.45);
-    float2 d = (uv - centre) * float2(size.x / size.y, 1.0);
-    float spot = exp(-dot(d, d) * 3.5) * glare;
-
-    half a = half(clamp(spec * strength + spot * 0.22, 0.0, 1.0));
-    return half4(a, a, a, a) * color.a;
-}
-
 // MARK: - Grain
 //
 // Mid-grey plus noise, for the overlay blend mode: 0.5 leaves the card untouched,
 // lighter and darker values etch it.
-
-[[ stitchable ]] half4 grain(float2 position, half4 color, float amount, float brushed) {
-    float fine = hash21(floor(position * 3.0)) - 0.5;
-    float hairline = fbm(float2(position.x * 0.02, position.y * 1.6), 4) - 0.5;
-    float n = mix(fine, hairline * 1.6, brushed) * amount;
-    half g = half(0.5 + n);
-    return half4(g, g, g, 1.0h) * color.a;
-}
 
 // MARK: - Hologram
 //
