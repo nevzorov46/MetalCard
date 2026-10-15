@@ -168,8 +168,8 @@ let titleOut: Double = 1.6                       // title card holds until here
 let pushEnd = titleOut + max(1.0, receiptAt - phoneIn)   // slow push through the payment
 let driveIn = pushEnd + 1.0                      // camera arrives at the receipt
 let holdEnd = driveIn + holdAfter
-let handover = holdEnd + 0.9                     // crossfade to the walkthrough
-let total = handover + diagram.duration - 0.3
+let handover = holdEnd + 1.25                     // crossfade to the walkthrough
+let total = handover + diagram.duration + 0.8
 
 func drawFrame(_ ctx: CGContext, time t: Double) {
     let ns = NSGraphicsContext(cgContext: ctx, flipped: false)
@@ -207,19 +207,30 @@ func drawFrame(_ ctx: CGContext, time t: Double) {
             zoom = lerp(1.78, 1.70, drift)
             focus = CGPoint(x: 0.5, y: lerp(0.535, 0.605, drift))
         }
-        let appear = min(fade(t, titleOut - 0.3, 0.5), 1 - fade(t, handover, 0.7))
+        let appear = min(fade(t, titleOut - 0.3, 0.5), 1 - fade(t, handover - 0.55, 0.5))
         if let image = phone.frame(at: min(phoneTime, receiptAt + 0.25)) {
             place(image, in: ctx, zoom: zoom, focus: focus, alpha: appear)
         }
     }
 
     // The walkthrough takes over
-    if t >= handover - 0.5 {
-        let on = fade(t, handover - 0.5, 0.7)
-        let zoom = lerp(1.07, 1.0, (t - handover + 0.5) / 1.1)
-        if let image = diagram.frame(at: max(0, t - handover + 0.5)) {
+    // A beat of black between the acts: the phone has finished, the explanation begins.
+    if t >= handover {
+        let on = fade(t, handover, 0.55)
+        let zoom = lerp(1.06, 1.0, (t - handover) / 1.2)
+        if let image = diagram.frame(at: max(0, t - handover)) {
             place(image, in: ctx, zoom: zoom, alpha: on)
         }
+    }
+
+    // One line under the phone, so the first act says what it is.
+    if t >= 2.0, t < pushEnd + 0.4 {
+        let on = min(fade(t, 2.0, 0.6), 1 - fade(t, pushEnd - 0.6, 0.6))
+        let scrim = fade(t, 2.0, 0.6) * 0.88
+        ctx.setFillColor(bg.withAlphaComponent(scrim).cgColor)
+        ctx.fill(CGRect(x: 0, y: 0, width: W, height: 250))
+        draw("A real payment, against a real gateway.",
+             at: CGPoint(x: CGFloat(W) / 2, y: 104), font: serif(36), colour: ink, alpha: on)
     }
 
     NSGraphicsContext.restoreGraphicsState()

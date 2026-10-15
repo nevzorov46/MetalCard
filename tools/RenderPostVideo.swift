@@ -163,11 +163,12 @@ func drawFrame(_ ctx: CGContext, time t: Double) {
 
     // The lanes are rules, not boxes.
     let lanesIn = fade(t, 0.6, 0.6)
-    for (lineY, name) in [(phoneLine, "PHONE"), (gatewayLine, "GATEWAY")] {
+    // Both names sit inside the band between the rules, at the left, where no wire runs.
+    for (lineY, name, drop) in [(phoneLine, "PHONE", CGFloat(44)), (gatewayLine, "GATEWAY", CGFloat(-24))] {
         hairline(ctx, from: CGPoint(x: left, y: y(lineY)),
                  to: CGPoint(x: left + (right - left) * lanesIn, y: y(lineY)), colour: rule)
-        draw(name, at: CGPoint(x: left, y: y(lineY - 50)), font: sans(15, .medium),
-             colour: ink3, alpha: lanesIn, tracking: 3)
+        draw(name, at: CGPoint(x: left, y: y(lineY + drop)), font: sans(24, .medium),
+             colour: ink2, alpha: lanesIn, tracking: 4.5)
     }
 
     for wire in wires where t >= wire.start {
@@ -242,11 +243,17 @@ func drawFrame(_ ctx: CGContext, time t: Double) {
         drawCaption(beat.text, top: 1065, alpha: on, strong: beat.strong)
     }
 
-    if t >= 11.2 {
-        let appear = fade(t, 11.2, 0.7)
+    if t >= 1.0 {
+        let appear = fade(t, 1.0, 0.8)
         hairline(ctx, from: CGPoint(x: left, y: y(1200)), to: CGPoint(x: right, y: y(1200)),
                  colour: rule.withAlphaComponent(appear))
-        let items = [("2", "REQUESTS"), ("1", "CHARGE"), ("843", "MS"), ("1", "KEY")]
+        // The numbers move as the payment does, so the tally is a reading of the
+        // story rather than a summary bolted on at the end.
+        let requests = t >= 7.3 ? 2 : (t >= 1.6 ? 1 : 0)
+        let charged = t >= 2.7 ? 1 : 0
+        let elapsed = Int(min(1, max(0, (t - 5.1) / 1.2)) * 843)
+        let items = [("\(requests)", "REQUESTS"), ("\(charged)", "CHARGE"),
+                     ("\(elapsed)", "MS"), ("1", "KEY")]
         let step = (right - left) / CGFloat(items.count)
         for (index, item) in items.enumerated() {
             let x = left + step * (CGFloat(index) + 0.5)
