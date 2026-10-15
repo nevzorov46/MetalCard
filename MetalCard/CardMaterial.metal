@@ -104,33 +104,36 @@ static float crystals(float2 p) {
 
 // MARK: - Environment
 
-// A studio in closed form: soft box overhead, coloured bounce from the left, dark floor.
-// Roughness widens the box instead of needing a prefiltered mip chain.
+// A dark studio with one wide strip light and a thinner second one. The strip is what
+// a metal card actually reflects: a shape with an edge that sweeps across the surface
+// as you tilt, not a gradient. Roughness softens the edge instead of needing mips.
 static float3 environment(float3 d, constant CardUniforms &u, float rough) {
-    float3 c = mix(u.ground.rgb, u.sky.rgb, smoothstep(-0.40, 0.50, d.y));
+    // Ambient: the room, tinted by the theme, darker towards the floor.
+    float3 room = mix(u.ground.rgb, u.sky.rgb, smoothstep(-0.7, 0.7, d.y)) * 0.20;
+    room += u.bounce.rgb * smoothstep(0.2, -0.7, d.x) * smoothstep(0.4, -0.4, d.y) * 0.16;
 
-    float soft = 0.10 + rough * 0.55;
-    float box = smoothstep(0.52 - soft, 0.52 + soft, d.y) * smoothstep(-0.45, 0.30, d.z);
-    c += (2.3 - rough * 1.1) * box;
+    float soft = 0.018 + rough * 0.10;
 
-    // A second, smaller source to the right keeps the surface from reading as one gradient.
-    float spot = smoothstep(0.25, 0.75, d.x) * smoothstep(-0.1, 0.55, d.y);
-    c += 0.5 * spot * (1.0 - rough * 0.5);
+    // The window: a narrow strip with a real edge, rounded at the ends, plus a soft
+    // halo around it so it reads as a light and not as a cut-out.
+    float cy = 0.40, hh = 0.065;
+    float band = smoothstep(cy - hh - soft, cy - hh + soft, d.y) * (1.0 - smoothstep(cy + hh - soft, cy + hh + soft, d.y));
+    float ends = smoothstep(-0.90, -0.50, d.x) * (1.0 - smoothstep(0.50, 0.90, d.x));
+    float halo = exp(-pow((d.y - cy) / 0.22, 2.0)) * exp(-pow(d.x / 0.9, 2.0));
+    float3 strip = float3(1.0, 0.985, 0.96) * (band * ends * 1.30 + halo * 0.18);
 
-    float fill = smoothstep(0.35, -0.55, d.y) * smoothstep(-0.25, 0.85, -d.x);
-    c += u.bounce.rgb * fill * 0.55;
+    // A thin cooler bar lower down, so two highlights slide at different speeds.
+    float by = 0.12, bh = 0.022;
+    float thin = smoothstep(by - bh - soft, by - bh + soft, d.y) * (1.0 - smoothstep(by + bh - soft, by + bh + soft, d.y));
+    float3 bar = mix(float3(0.82, 0.90, 1.0), u.bounce.rgb, 0.30) * thin * ends * 0.55;
 
-    // A dim band just under the horizon: the table the card is lying on.
-    float table = smoothstep(-0.05, -0.45, d.y) * smoothstep(-0.75, -0.2, d.y);
-    c += u.sky.rgb * table * 0.30;
-    return c;
+    return room + strip + bar;
 }
 
-// What a diffuse surface receives: the room averaged, without the light sources
-// themselves, so albedo stays albedo instead of being blown out by the soft box.
+// What a diffuse surface receives: the room without the strips.
 static float3 irradiance(float3 d, constant CardUniforms &u) {
-    float3 c = mix(u.ground.rgb, u.sky.rgb, smoothstep(-0.45, 0.65, d.y));
-    c += u.bounce.rgb * smoothstep(0.30, -0.50, d.y) * 0.22;
+    float3 c = mix(u.ground.rgb, u.sky.rgb, smoothstep(-0.45, 0.65, d.y)) * 0.6;
+    c += u.bounce.rgb * smoothstep(0.30, -0.50, d.y) * 0.18;
     return c;
 }
 
@@ -151,9 +154,24 @@ static float3 fresnel(float3 f0, float vh) {
     return f0 + (1.0 - f0) * pow(saturate(1.0 - vh), 5.0);
 }
 
+// MARK: - Output
+
+// Filmic knee, then sRGB. The target is bgra8Unorm, so the encode happens here:
+// without it, light writes straight into display values, midtones crush and
+// anything over 1.0 clips to flat white.
+static float3 tonemap(float3 c) {
+    c = max(c, 0.0);
+    c = (c * (2.51 * c + 0.03)) / (c * (2.43 * c + 0.59) + 0.14);
+    return saturate(c);
+}
+
+static float3 encode(float3 c) {
+    return select(1.055 * pow(c, 1.0 / 2.4) - 0.055, c * 12.92, c <= 0.0031308);
+}
+
 fragment half4 cardFragment(Vertex in [[stage_in]], constant CardUniforms &u [[buffer(0)]]) {
     float metallic = u.params0.x;
-    float rough = clamp(u.params0.y, 0.035, 1.0);   // adjusted by the brushing below
+    float rough = clamp(u.params0.y, 0.035, 1.0);
     float aniso = u.params0.z;
     float2 tilt = float2(u.params0.w, u.params1.x);
     float glare = u.params1.w;
@@ -162,15 +180,16 @@ fragment half4 cardFragment(Vertex in [[stage_in]], constant CardUniforms &u [[b
     float3 T = normalize(in.tangent - N * dot(N, in.tangent));
     float3 B = cross(N, T);
 
-    // Brushing runs along the card's long side: grooves are fine across it, long along it.
-    float grooves = valueNoise(float2(in.uv.x * 11.0, in.uv.y * 1700.0)) - 0.5;
-    grooves += (valueNoise(float2(in.uv.x * 3.0, in.uv.y * 420.0)) - 0.5) * 0.6;
-    float grain = valueNoise(in.uv * 520.0) - 0.5;
-    N = normalize(N + T * grooves * aniso * 0.20 + B * grain * 0.015);
-
-    // The grooves also vary the polish, which is what makes them readable away from the
-    // highlight instead of only inside it.
-    rough = clamp(rough * (1.0 + grooves * aniso * 0.55), 0.02, 1.0);
+    // Brushing: fine grooves along the long side. Kept below the pixel grid's
+    // reach and faded where they would alias, so they live inside the highlight
+    // instead of printing scanlines across the whole card.
+    float density = 1.0 - saturate(fwidth(in.uv.y) * 220.0);
+    float grooves = (valueNoise(float2(in.uv.x * 6.0, in.uv.y * 520.0)) - 0.5)
+                  + (valueNoise(float2(in.uv.x * 2.0, in.uv.y * 160.0)) - 0.5) * 0.7;
+    grooves *= density;
+    float grain = (valueNoise(in.uv * 240.0) - 0.5) * density;
+    N = normalize(N + T * grooves * aniso * 0.06 + B * grain * 0.006);
+    rough = clamp(rough * (1.0 + grooves * aniso * 0.25), 0.03, 1.0);
 
     // Tilting the phone moves the viewer, not the card.
     float3 eye = normalize(float3(tilt.x * 1.15, tilt.y * 1.15, 2.4));
@@ -178,10 +197,11 @@ fragment half4 cardFragment(Vertex in [[stage_in]], constant CardUniforms &u [[b
     float nv = saturate(dot(N, V));
 
     float3 albedo = u.baseColour.rgb;
-    float3 f0 = u.reflectance.rgb;
+    // Tinted metal keeps its colourway: half the reflectance comes from the base.
+    float3 f0 = mix(u.reflectance.rgb, albedo, metallic * 0.35);
 
-    // Key light sits where the soft box is, and follows the tilt with the environment.
-    float3 L = normalize(float3(-0.35 + tilt.x * 0.5, 0.78 - tilt.y * 0.35, 0.52));
+    // Key light sits where the strip is and follows the tilt with the environment.
+    float3 L = normalize(float3(-0.25 + tilt.x * 0.45, 0.70 - tilt.y * 0.30, 0.60));
     float3 H = normalize(L + V);
     float nl = saturate(dot(N, L));
     float nh = saturate(dot(N, H));
@@ -193,43 +213,59 @@ fragment half4 cardFragment(Vertex in [[stage_in]], constant CardUniforms &u [[b
     float D = ggxAniso(nh, dot(H, T), dot(H, B), ax, ay);
     float G = smithAniso(nv, dot(V, T), dot(V, B), ax, ay) * smithAniso(nl, dot(L, T), dot(L, B), ax, ay);
     float3 F = fresnel(f0, vh);
-    float3 direct = D * G * F / max(4.0 * nv * nl, 1e-4) * nl * (1.6 + glare * 1.4);
+    float3 direct = D * G * F / max(4.0 * nv * nl, 1e-4) * nl * (0.55 + glare * 0.6);
 
-    // Environment: a mirror lobe for specular, the normal for diffuse.
+    // Environment: the mirror lobe, stretched along the brushing so the strip reads as
+    // a brushed highlight rather than a chrome one.
     float3 R = reflect(-V, N);
+    R = normalize(R + T * grooves * aniso * 0.07);
     float3 specularIBL = environment(R, u, rough) * F;
-    // A surface facing the viewer is lit mostly by what is above it, not by the table,
-    // so the irradiance direction leans towards the sky.
     float3 up = normalize(N + float3(0.0, 0.75, 0.0));
     float3 diffuseIBL = irradiance(up, u) * albedo * (1.0 - metallic);
+    // Metal still shows its own colour where nothing bright is reflected.
+    float3 tint = albedo * metallic * 0.35;
 
     float coatRough = 0.12 + rough * 0.1;
     float coatD = ggxAniso(nh, dot(H, T), dot(H, B), coatRough, coatRough);
-    float3 coat = coatD * fresnel(float3(0.04), vh) * nl * (1.0 - metallic) * 0.9;
+    float3 coat = coatD * fresnel(float3(0.04), vh) * nl * (1.0 - metallic) * 0.6;
 
-    // Edge brightening, the giveaway of a real surface.
-    float rim = pow(1.0 - nv, 4.0) * (0.35 + metallic * 0.5);
+    float3 colour = diffuseIBL + specularIBL + direct + coat + tint;
 
-    float3 colour = diffuseIBL + specularIBL + direct + coat + rim;
+    // Thickness: a hairline of light on the edge the card is turned towards, and
+    // shadow on the other. The one thing that makes a flat surface read as an object.
+    float2 e = min(in.uv, 1.0 - in.uv);
+    float edge = min(e.x * 1.586, e.y);
+    float lip = 1.0 - smoothstep(0.0, 0.012, edge);
+    float2 toward = float2(-tilt.x, tilt.y) * 0.5 + 0.5;          // which edges face the light
+    float facing = (in.uv.x < 0.5 ? toward.x : 1.0 - toward.x) * 0.5
+                 + (in.uv.y < 0.5 ? toward.y : 1.0 - toward.y) * 0.5;
+    colour += lip * (facing * 0.7 - 0.22) * (0.5 + metallic * 0.5);
 
-    // Ice grows in from the edges: the front is the distance to the nearest one, broken
-    // up by crystals so it never reads as a rectangle sliding inwards.
+    // Ice grows in from the edges. The surface stays visible underneath: ice is a
+    // skin that scatters light, not paint.
     float frost = u.params2.x;
     if (frost > 0.001) {
-        float2 e = min(in.uv, 1.0 - in.uv);
-        float edge = min(e.x * 1.586, e.y);
-        float front = frost * 0.62;
-        float broken = edge - crystals(in.uv * float2(11.0, 7.0)) * 0.085 * frost;
-        float ice = 1.0 - smoothstep(front - 0.055, front + 0.015, broken);
+        // The front wanders at two scales: slow bays and fingers, then crystals.
+        float wander = (valueNoise(in.uv * float2(3.0, 2.0) + 4.0) - 0.5) * 0.14
+                     + (valueNoise(in.uv * float2(9.0, 6.0) + 11.0) - 0.5) * 0.05;
+        float front = frost * 0.46 + wander * frost;
+        float broken = edge - crystals(in.uv * float2(11.0, 7.0)) * 0.07 * frost;
+        float ice = 1.0 - smoothstep(front - 0.06, front + 0.015, broken);
+        // Thick rime at the rim, thin frost at the front: the white follows thickness.
+        float thick = 1.0 - smoothstep(front - 0.30, front, broken);
 
-        float veins = crystals(in.uv * float2(34.0, 21.0));
-        float sparkle = pow(valueNoise(in.uv * 300.0), 22.0) * 7.0;
+        float veins = crystals(in.uv * float2(30.0, 19.0));
+        float sparkle = pow(valueNoise(in.uv * 260.0), 26.0) * 5.0;
 
-        float3 cold = float3(0.80, 0.90, 0.98);
-        float3 frosted = mix(colour, colour * 0.55 + cold * 0.55, 0.85);
-        frosted += veins * 0.14 + sparkle * ice;
+        // The reflection refracts through the crystals, so the strip breaks up under ice.
+        float3 Ri = normalize(R + float3(veins - 0.5, crystals(in.uv * float2(17.0, 11.0)) - 0.5, 0.0) * 0.35);
+        float3 underIce = environment(Ri, u, min(rough + 0.35, 1.0)) * F;
+
+        float3 cold = float3(0.80, 0.89, 0.97);
+        float white = 0.10 + thick * 0.30 + veins * 0.12;
+        float3 frosted = colour * (0.60 - thick * 0.25) + underIce * 0.30 + cold * white + sparkle * ice * thick;
         colour = mix(colour, frosted, ice);
     }
 
-    return half4(half3(colour), 1.0h);
+    return half4(half3(encode(tonemap(colour))), 1.0h);
 }

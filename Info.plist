@@ -4,7 +4,6 @@
 <dict>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!-- gatewayd runs on the machine next to the simulator, over plain HTTP. -->
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
