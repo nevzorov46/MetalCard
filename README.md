@@ -1,8 +1,32 @@
 # Metal Card
 
-A fintech card that behaves like a physical one: brushed-metal sheen that follows the phone,
-a holographic band, and ice that creeps in from the edges when you freeze the card.
-SwiftUI for the layout, Metal shaders for everything that has to feel real.
+A wallet you can pay from, wearing a card that behaves like a physical one: brushed-metal
+sheen that follows the phone, a holographic band, and ice that creeps across the card when
+you freeze it. SwiftUI for the layout, Metal shaders for everything that has to feel real,
+and a payment path built the way money actually has to be moved.
+
+## Paying
+
+Tap **Pay**, confirm with Face ID, and the charge goes out. What happens underneath is the
+part worth reading:
+
+- **Money is counted in minor units.** Cents, not euros, and never a binary float. The
+  exponent comes from the currency, so yen is formatted without decimals and the code does
+  not assume everyone has two.
+- **Every payment carries an idempotency key**, made once per intent to pay. The key is
+  what lets the gateway tell a retry apart from a second purchase.
+- **A lost response is retried; a decline is not.** A decline is an answer, and asking the
+  same question again would be both pointless and rude to the customer.
+- **The gateway claims the key before its first `await`.** An actor protects state at an
+  instant, not across a suspension — without the claim, two requests arriving together both
+  find an empty table and both take the money. There is a test that races them.
+- **A frozen card is stopped on the device.** It never reaches the network, which is the
+  whole point of freezing it. The ice is the feature, not a decoration over one.
+- **The card number is held back** until the holder asks for it, and the sample PANs fail
+  the Luhn check on purpose — there is a test that checks they still do.
+
+Seventeen tests cover the money arithmetic, the retry and replay paths, the race, and the
+flow's state machine. `.github/workflows/ci.yml` builds and runs them on every push.
 
 ## Run it
 
@@ -20,6 +44,10 @@ SwiftUI for the layout, Metal shaders for everything that has to feel real.
 | `Shaders.metal` | `sheen` — specular band + brushed grain + holographic tint, driven by tilt. `frost` — ice front growing inwards from the edges, with veins and sparkle. |
 | `CardView.swift` | Card body, front and back, flip, number reveal, shader overlays. |
 | `WalletView.swift` | Wallet stack, zoom into detail with `matchedGeometryEffect`, controls. |
+| `Payment.swift` | `Money` in minor units, `Currency` with its own exponent, the idempotency key, the errors. |
+| `PaymentGateway.swift` | The gateway as an actor: the record of charged keys, the dropped response, the retrying client. |
+| `Checkout.swift` | One checkout from sheet to receipt, and who is allowed to confirm it. |
+| `CheckoutView.swift` | The pay sheet; one button that changes its mind as the payment moves. |
 | `MotionTilt.swift` | CoreMotion attitude → smoothed tilt vector. |
 
 ## Notes on the shaders

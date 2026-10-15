@@ -16,6 +16,9 @@ struct HomeView: View {
     @State private var flying: Card.ID?          // the hero layer is showing this card
     @State private var showsDetails = false
     @State private var showsThemes = false
+    @State private var showsCheckout = false
+    /// One gateway for the whole session, so its idempotency record survives between sheets.
+    @State private var gateway = PaymentGateway(responsesToDrop: 1)
     @State private var drag: CGSize = .zero
     @State private var flip: Double = 0           // degrees; each fling to the side adds a half turn
     @GestureState private var holding = false     // a finger is on the open card
@@ -273,11 +276,21 @@ struct HomeView: View {
 
     private var actions: some View {
         HStack(spacing: 10) {
-            pill("Send", "arrow.up.right", primary: true)
+            Button { showsCheckout = true } label: {
+                pill("Pay", "wave.3.right", primary: true)
+            }
+            .buttonStyle(.plain)
+            pill("Send", "arrow.up.right")
             pill("Add money", "plus")
-            pill("Request", "arrow.down.left")
         }
         .padding(.horizontal, 24)
+        .sheet(isPresented: $showsCheckout) {
+            if let id = currentCard ?? wallet.cards.first?.id, let card = wallet.card(id) {
+                CheckoutView(card: card, gateway: gateway)
+                    .presentationDetents([.height(520)])
+                    .presentationDragIndicator(.visible)
+            }
+        }
     }
 
     private func pill(_ title: String, _ symbol: String, primary: Bool = false) -> some View {
