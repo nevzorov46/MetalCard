@@ -1,78 +1,80 @@
 // Renders the payment walkthrough to an MP4, for posting.
 //
 //   swift tools/RenderPostVideo.swift out.mp4
+//   swift tools/RenderPostVideo.swift --png 5.2 frame.png
 //
-// 1080x1350 — the tallest frame a feed will show without cropping. Core Graphics
-// draws each frame, AVAssetWriter encodes them. No dependencies, nothing to install.
+// 1080x1350 — the tallest frame a feed shows without cropping. Core Graphics draws
+// each frame, AVAssetWriter encodes it. Nothing to install.
 
 import AVFoundation
 import AppKit
 
 // MARK: - Palette
 
-let bg = NSColor(srgbRed: 0.055, green: 0.067, blue: 0.082, alpha: 1)
-let lane = NSColor(srgbRed: 0.090, green: 0.106, blue: 0.129, alpha: 1)
-let ink = NSColor(srgbRed: 0.914, green: 0.925, blue: 0.937, alpha: 1)
-let ink2 = NSColor(srgbRed: 0.608, green: 0.639, blue: 0.675, alpha: 1)
-let ink3 = NSColor(srgbRed: 0.447, green: 0.478, blue: 0.514, alpha: 1)
-let accent = NSColor(srgbRed: 0.455, green: 0.725, blue: 0.839, alpha: 1)
-let flag = NSColor(srgbRed: 0.898, green: 0.514, blue: 0.592, alpha: 1)
-let good = NSColor(srgbRed: 0.435, green: 0.757, blue: 0.569, alpha: 1)
+let bg     = NSColor(srgbRed: 0.043, green: 0.047, blue: 0.055, alpha: 1)
+let ink    = NSColor(srgbRed: 0.929, green: 0.918, blue: 0.894, alpha: 1)
+let ink2   = NSColor(srgbRed: 0.549, green: 0.553, blue: 0.561, alpha: 1)
+let ink3   = NSColor(srgbRed: 0.353, green: 0.361, blue: 0.376, alpha: 1)
+let rule   = NSColor(srgbRed: 0.125, green: 0.137, blue: 0.157, alpha: 1)
+let accent = NSColor(srgbRed: 0.498, green: 0.659, blue: 0.769, alpha: 1)
+let rose   = NSColor(srgbRed: 0.788, green: 0.557, blue: 0.608, alpha: 1)
 
 // MARK: - Geometry
 
 let W = 1080, H = 1350
 let fps: Int32 = 30
-let duration = 13.0
+let duration = 14.5
 
-let phoneY: CGFloat = 400      // from the top
-let serverY: CGFloat = 740
-let laneHeight: CGFloat = 130
+let phoneLine: CGFloat = 480
+let gatewayLine: CGFloat = 800
+let left: CGFloat = 110
+let right: CGFloat = 970
 
-struct Node { let x: CGFloat; let y: CGFloat; let label: String; let colour: NSColor }
-let e1 = Node(x: 200, y: phoneY, label: "POST №1", colour: accent)
-let e2 = Node(x: 410, y: serverY, label: "списал · ответ выброшен", colour: flag)
-let e3 = Node(x: 650, y: phoneY, label: "POST №2 · тот же ключ", colour: accent)
-let e4 = Node(x: 850, y: serverY, label: "отдал запись", colour: good)
-let e5 = Node(x: 975, y: phoneY, label: "чек", colour: good)
+struct Node { let x: CGFloat; let y: CGFloat; let label: String; let tint: NSColor }
+let e1 = Node(x: 250, y: phoneLine,   label: "POST #1",                   tint: accent)
+let e2 = Node(x: 415, y: gatewayLine, label: "charged · answer dropped",  tint: rose)
+let e3 = Node(x: 670, y: phoneLine,   label: "POST #2 · same key",        tint: accent)
+let e4 = Node(x: 855, y: gatewayLine, label: "replayed",                  tint: ink)
+let e5 = Node(x: 965, y: phoneLine,   label: "receipt",                   tint: ink)
 
 // MARK: - Script
 
-struct Beat {
-    let start: Double
-    let end: Double
-    let caption: String
-    let strong: String
-}
+struct Beat { let start: Double; let end: Double; let text: String; let strong: String }
 
 let beats: [Beat] = [
-    Beat(start: 0.6, end: 2.4, caption: "Face ID подтверждён. Телефон шлёт запрос\nи кладёт ключ идемпотентности в заголовок.", strong: ""),
-    Beat(start: 2.4, end: 3.4, caption: "Сервер списал деньги\nи записал чек под ключом.", strong: "списал"),
-    Beat(start: 3.4, end: 4.4, caption: "А ответ не дошёл.\nОборванный Wi-Fi, упавший балансировщик — неважно.", strong: ""),
-    Beat(start: 4.4, end: 6.4, caption: "Деньги ушли.\nТелефон об этом не знает.", strong: "Телефон об этом не знает."),
-    Beat(start: 6.4, end: 7.8, caption: "Телефон повторяет — тем же ключом.\nНамерение не изменилось, значит и ключ не меняется.", strong: "тем же ключом"),
-    Beat(start: 7.8, end: 9.2, caption: "Ключ знаком. Сервер отдаёт ту же запись,\nа не списывает заново.", strong: "ту же запись"),
-    Beat(start: 9.2, end: 13.0, caption: "Два запроса. Одно списание.", strong: "Одно списание.")
+    Beat(start: 0.8, end: 2.7, text: "Face ID confirms. The phone sends the charge\nwith an idempotency key in the header.", strong: "idempotency key"),
+    Beat(start: 2.7, end: 3.9, text: "The gateway takes the money\nand files the receipt under that key.", strong: "takes the money"),
+    Beat(start: 3.9, end: 5.0, text: "The answer never comes back. A dropped connection,\na restarted proxy — it does not matter which.", strong: ""),
+    Beat(start: 5.0, end: 7.2, text: "The money is gone.\nThe phone does not know.", strong: "The phone does not know."),
+    Beat(start: 7.2, end: 9.0, text: "So it asks again, with the same key.\nThe intent has not changed, so neither has the key.", strong: "with the same key"),
+    Beat(start: 9.0, end: 10.5, text: "The key is known. The gateway returns\nthe receipt it already wrote.", strong: "the receipt it already wrote"),
+    Beat(start: 10.5, end: 14.5, text: "Two requests. One charge.", strong: "One charge.")
 ]
 
-// Which wire is moving when: (from, to, start, duration, lost)
 struct Wire { let a: Node; let b: Node; let start: Double; let dur: Double; let lost: Bool }
+let lostEnd = Node(x: 575, y: 645, label: "", tint: rose)
 let wires: [Wire] = [
-    Wire(a: e1, b: e2, start: 1.4, dur: 1.0, lost: false),
-    Wire(a: e2, b: Node(x: 560, y: 580, label: "", colour: flag), start: 3.4, dur: 0.8, lost: true),
-    Wire(a: e3, b: e4, start: 6.4, dur: 1.0, lost: false),
-    Wire(a: e4, b: e5, start: 8.2, dur: 0.9, lost: false)
+    Wire(a: e1, b: e2, start: 1.6, dur: 1.1, lost: false),
+    Wire(a: e2, b: lostEnd, start: 3.9, dur: 0.9, lost: true),
+    Wire(a: e3, b: e4, start: 7.3, dur: 1.1, lost: false),
+    Wire(a: e4, b: e5, start: 9.4, dur: 0.9, lost: false)
 ]
 
-// When each node lights up for good.
-let litAt: [(Node, Double)] = [(e1, 1.4), (e2, 2.4), (e3, 6.4), (e4, 7.8), (e5, 9.1)]
+let litAt: [(Node, Double)] = [(e1, 1.6), (e2, 2.7), (e3, 7.3), (e4, 9.0), (e5, 10.3)]
 
-// MARK: - Drawing helpers
+// MARK: - Drawing
 
 func y(_ fromTop: CGFloat) -> CGFloat { CGFloat(H) - fromTop }
 
-func font(_ size: CGFloat, _ weight: NSFont.Weight = .regular) -> NSFont {
+func sans(_ size: CGFloat, _ weight: NSFont.Weight = .regular) -> NSFont {
     NSFont.systemFont(ofSize: size, weight: weight)
+}
+
+func serif(_ size: CGFloat, _ weight: NSFont.Weight = .regular) -> NSFont {
+    let base = NSFont.systemFont(ofSize: size, weight: weight)
+    if let descriptor = base.fontDescriptor.withDesign(.serif),
+       let font = NSFont(descriptor: descriptor, size: size) { return font }
+    return base
 }
 
 func mono(_ size: CGFloat, _ weight: NSFont.Weight = .regular) -> NSFont {
@@ -80,13 +82,14 @@ func mono(_ size: CGFloat, _ weight: NSFont.Weight = .regular) -> NSFont {
 }
 
 func draw(_ text: String, at point: CGPoint, font f: NSFont, colour: NSColor,
-          align: NSTextAlignment = .left, alpha: CGFloat = 1, lineHeight: CGFloat = 1.3) {
+          align: NSTextAlignment = .left, alpha: CGFloat = 1, tracking: CGFloat = 0) {
+    guard alpha > 0.01 else { return }
     let style = NSMutableParagraphStyle()
     style.alignment = align
-    style.lineHeightMultiple = lineHeight
     let attributed = NSAttributedString(string: text, attributes: [
         .font: f,
-        .foregroundColor: colour.withAlphaComponent(colour.alphaComponent * alpha),
+        .foregroundColor: colour.withAlphaComponent(alpha),
+        .kern: tracking,
         .paragraphStyle: style
     ])
     let size = attributed.size()
@@ -96,39 +99,39 @@ func draw(_ text: String, at point: CGPoint, font f: NSFont, colour: NSColor,
     case .right:  origin.x -= size.width
     default: break
     }
-    attributed.draw(in: CGRect(origin: origin, size: CGSize(width: size.width + 4, height: size.height + 6)))
+    attributed.draw(in: CGRect(origin: origin, size: CGSize(width: size.width + 6, height: size.height + 6)))
 }
 
-func drawMultiline(_ text: String, centeredAt x: CGFloat, top: CGFloat, font f: NSFont,
-                   colour: NSColor, alpha: CGFloat, strong: String) {
+func drawCaption(_ text: String, top: CGFloat, alpha: CGFloat, strong: String) {
+    guard alpha > 0.01 else { return }
     let style = NSMutableParagraphStyle()
     style.alignment = .center
-    style.lineHeightMultiple = 1.25
+    style.lineHeightMultiple = 1.3
     let attributed = NSMutableAttributedString(string: text, attributes: [
-        .font: f,
+        .font: serif(34),
         .foregroundColor: ink2.withAlphaComponent(alpha),
         .paragraphStyle: style
     ])
     if !strong.isEmpty, let range = text.range(of: strong) {
-        attributed.addAttributes([
-            .font: NSFont.systemFont(ofSize: f.pointSize, weight: .semibold),
-            .foregroundColor: ink.withAlphaComponent(alpha)
-        ], range: NSRange(range, in: text))
+        attributed.addAttributes([.foregroundColor: ink.withAlphaComponent(alpha)],
+                                 range: NSRange(range, in: text))
     }
     let size = attributed.size()
-    attributed.draw(in: CGRect(x: x - size.width / 2, y: y(top) - size.height,
-                               width: size.width + 4, height: size.height + 8))
+    attributed.draw(in: CGRect(x: (CGFloat(W) - size.width) / 2, y: y(top) - size.height,
+                               width: size.width + 6, height: size.height + 8))
 }
 
-func roundedRect(_ ctx: CGContext, _ rect: CGRect, radius: CGFloat, fill: NSColor) {
-    let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
-    ctx.addPath(path)
-    ctx.setFillColor(fill.cgColor)
-    ctx.fillPath()
+func hairline(_ ctx: CGContext, from: CGPoint, to: CGPoint, colour: NSColor, width: CGFloat = 1) {
+    ctx.setStrokeColor(colour.cgColor)
+    ctx.setLineWidth(width)
+    ctx.move(to: from)
+    ctx.addLine(to: to)
+    ctx.strokePath()
 }
 
-func ease(_ t: Double) -> Double {
-    t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
+func ease(_ t: Double) -> Double { t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2 }
+func fade(_ t: Double, _ start: Double, _ over: Double) -> CGFloat {
+    CGFloat(min(1, max(0, (t - start) / over)))
 }
 
 // MARK: - One frame
@@ -137,145 +140,152 @@ func drawFrame(_ ctx: CGContext, time t: Double) {
     let ns = NSGraphicsContext(cgContext: ctx, flipped: false)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = ns
+    ctx.setLineCap(.round)
 
     ctx.setFillColor(bg.cgColor)
     ctx.fill(CGRect(x: 0, y: 0, width: W, height: H))
 
-    // Title
-    let titleIn = min(1, max(0, t / 0.6))
-    draw("Один ключ, два запроса", at: CGPoint(x: CGFloat(W) / 2, y: y(170)),
-         font: font(54, .bold), colour: ink, align: .center, alpha: titleIn)
-    draw("один платёж, записанный с двух сторон", at: CGPoint(x: CGFloat(W) / 2, y: y(232)),
-         font: font(26), colour: ink3, align: .center, alpha: titleIn)
+    let titleIn = fade(t, 0, 0.7)
+    draw("One key, two requests", at: CGPoint(x: CGFloat(W) / 2, y: y(205)),
+         font: serif(60), colour: ink, align: .center, alpha: titleIn)
+    draw("A SINGLE PAYMENT, RECORDED FROM BOTH SIDES",
+         at: CGPoint(x: CGFloat(W) / 2, y: y(262)),
+         font: sans(17, .medium), colour: ink3, align: .center, alpha: titleIn, tracking: 3.4)
 
-    // The key
-    let keyIn = min(1, max(0, (t - 0.3) / 0.5))
-    roundedRect(ctx, CGRect(x: 120, y: y(320), width: 840, height: 54), radius: 12,
-                fill: accent.withAlphaComponent(0.14 * keyIn))
-    draw("Idempotency-Key  5b2f2c8c-11c9-4f42-b3f4-d5367f08c0eb",
-         at: CGPoint(x: CGFloat(W) / 2, y: y(305)),
-         font: mono(22), colour: accent, align: .center, alpha: keyIn)
+    let keyIn = fade(t, 0.35, 0.6)
+    hairline(ctx, from: CGPoint(x: left, y: y(322)), to: CGPoint(x: right, y: y(322)),
+             colour: rule.withAlphaComponent(keyIn))
+    draw("Idempotency-Key   5b2f2c8c-11c9-4f42-b3f4-d5367f08c0eb",
+         at: CGPoint(x: CGFloat(W) / 2, y: y(374)),
+         font: mono(21), colour: ink3, align: .center, alpha: keyIn)
+    hairline(ctx, from: CGPoint(x: left, y: y(402)), to: CGPoint(x: right, y: y(402)),
+             colour: rule.withAlphaComponent(keyIn))
 
-    // Lanes
-    let lanesIn = min(1, max(0, (t - 0.5) / 0.5))
-    roundedRect(ctx, CGRect(x: 120, y: y(phoneY + laneHeight / 2), width: 890, height: laneHeight),
-                radius: 18, fill: lane.withAlphaComponent(lanesIn))
-    roundedRect(ctx, CGRect(x: 120, y: y(serverY + laneHeight / 2), width: 890, height: laneHeight),
-                radius: 18, fill: lane.withAlphaComponent(lanesIn))
-    draw("ТЕЛЕФОН", at: CGPoint(x: 150, y: y(phoneY - 36)), font: font(19, .medium),
-         colour: ink3, alpha: lanesIn)
-    draw("СЕРВЕР", at: CGPoint(x: 150, y: y(serverY - 36)), font: font(19, .medium),
-         colour: ink3, alpha: lanesIn)
+    // The lanes are rules, not boxes.
+    let lanesIn = fade(t, 0.6, 0.6)
+    for (lineY, name) in [(phoneLine, "PHONE"), (gatewayLine, "GATEWAY")] {
+        hairline(ctx, from: CGPoint(x: left, y: y(lineY)),
+                 to: CGPoint(x: left + (right - left) * lanesIn, y: y(lineY)), colour: rule)
+        draw(name, at: CGPoint(x: left, y: y(lineY - 50)), font: sans(15, .medium),
+             colour: ink3, alpha: lanesIn, tracking: 3)
+    }
 
-    // Wires, drawn once their beat has started
-    ctx.setLineWidth(3)
-    ctx.setLineCap(.round)
-    for wire in wires {
-        guard t >= wire.start else { continue }
-        let grow = min(1, (t - wire.start) / wire.dur)
+    for wire in wires where t >= wire.start {
+        let grow = CGFloat(min(1, (t - wire.start) / wire.dur))
         let from = CGPoint(x: wire.a.x, y: y(wire.a.y))
         let full = CGPoint(x: wire.b.x, y: y(wire.b.y))
-        let to = CGPoint(x: from.x + (full.x - from.x) * grow,
-                         y: from.y + (full.y - from.y) * grow)
-        ctx.setStrokeColor((wire.lost ? flag : accent).withAlphaComponent(wire.lost ? 0.9 : 0.55).cgColor)
-        if wire.lost { ctx.setLineDash(phase: 0, lengths: [10, 10]) } else { ctx.setLineDash(phase: 0, lengths: []) }
+        ctx.setStrokeColor((wire.lost ? rose : accent).withAlphaComponent(0.5).cgColor)
+        ctx.setLineWidth(2)
+        if wire.lost { ctx.setLineDash(phase: 0, lengths: [7, 9]) }
         ctx.move(to: from)
-        ctx.addLine(to: to)
+        ctx.addLine(to: CGPoint(x: from.x + (full.x - from.x) * grow,
+                                y: from.y + (full.y - from.y) * grow))
         ctx.strokePath()
         ctx.setLineDash(phase: 0, lengths: [])
 
-        // The packet itself
-        if t >= wire.start, t <= wire.start + wire.dur {
-            let p = ease(min(1, (t - wire.start) / wire.dur))
+        if t <= wire.start + wire.dur {
+            let p = CGFloat(ease(min(1, (t - wire.start) / wire.dur)))
             let pt = CGPoint(x: from.x + (full.x - from.x) * p, y: from.y + (full.y - from.y) * p)
-            ctx.setFillColor((wire.lost ? flag : accent).cgColor)
-            ctx.fillEllipse(in: CGRect(x: pt.x - 11, y: pt.y - 11, width: 22, height: 22))
+            ctx.setFillColor((wire.lost ? rose : accent).cgColor)
+            ctx.fillEllipse(in: CGRect(x: pt.x - 8, y: pt.y - 8, width: 16, height: 16))
         }
-        // The cross where the lost answer stops
+
         if wire.lost, t > wire.start + wire.dur {
-            let c = full
-            ctx.setStrokeColor(flag.cgColor)
-            ctx.setLineWidth(4)
-            ctx.move(to: CGPoint(x: c.x - 13, y: c.y - 13)); ctx.addLine(to: CGPoint(x: c.x + 13, y: c.y + 13))
-            ctx.move(to: CGPoint(x: c.x + 13, y: c.y - 13)); ctx.addLine(to: CGPoint(x: c.x - 13, y: c.y + 13))
+            let appear = fade(t, wire.start + wire.dur, 0.3)
+            ctx.setStrokeColor(rose.withAlphaComponent(appear).cgColor)
+            ctx.setLineWidth(2)
+            ctx.move(to: CGPoint(x: full.x - 11, y: full.y - 11))
+            ctx.addLine(to: CGPoint(x: full.x + 11, y: full.y + 11))
+            ctx.move(to: CGPoint(x: full.x + 11, y: full.y - 11))
+            ctx.addLine(to: CGPoint(x: full.x - 11, y: full.y + 11))
             ctx.strokePath()
-            ctx.setLineWidth(3)
-            draw("ответ не дошёл", at: CGPoint(x: c.x + 34, y: c.y - 14),
-                 font: font(22), colour: flag)
+            // Centred above the cross: to the right it would sit under the second request.
+            draw("the answer never arrived", at: CGPoint(x: full.x, y: full.y + 26),
+                 font: sans(21), colour: rose, align: .center, alpha: appear)
         }
     }
 
-    // Nodes
     for (node, at) in litAt {
-        let appear = min(1, max(0, (t - at + 0.9) / 0.5))
-        guard appear > 0 else { continue }
-        let isLit = t >= at
+        let appear = fade(t, at - 0.9, 0.5)
+        guard appear > 0.01 else { continue }
+        let lit = t >= at
         let centre = CGPoint(x: node.x, y: y(node.y))
-        let r: CGFloat = 20
-        ctx.setFillColor((isLit ? node.colour : bg).withAlphaComponent(appear).cgColor)
-        ctx.fillEllipse(in: CGRect(x: centre.x - r, y: centre.y - r, width: r * 2, height: r * 2))
-        ctx.setStrokeColor(node.colour.withAlphaComponent(appear).cgColor)
-        ctx.setLineWidth(5)
+        let r: CGFloat = 13
+
+        ctx.setFillColor(bg.cgColor)
+        ctx.fillEllipse(in: CGRect(x: centre.x - r - 5, y: centre.y - r - 5,
+                                   width: (r + 5) * 2, height: (r + 5) * 2))
+        if lit {
+            ctx.setFillColor(node.tint.withAlphaComponent(appear).cgColor)
+            ctx.fillEllipse(in: CGRect(x: centre.x - r, y: centre.y - r, width: r * 2, height: r * 2))
+        }
+        ctx.setStrokeColor(node.tint.withAlphaComponent(appear * (lit ? 1 : 0.45)).cgColor)
+        ctx.setLineWidth(2)
         ctx.strokeEllipse(in: CGRect(x: centre.x - r, y: centre.y - r, width: r * 2, height: r * 2))
 
-        draw(node.label, at: CGPoint(x: node.x, y: y(node.y + 58)),
-             font: font(23, isLit ? .medium : .regular),
-             colour: isLit ? ink : ink3, align: .center, alpha: appear)
+        // Phone labels above their rule, gateway labels below, so the middle stays clear.
+        let above = node.y == phoneLine
+        draw(node.label, at: CGPoint(x: node.x, y: y(node.y + (above ? -34 : 64))),
+             font: sans(21, lit ? .medium : .regular),
+             colour: lit ? ink : ink3, align: .center, alpha: appear)
     }
 
-    // The gap, counted out
-    if t >= 4.4, t <= 6.4 {
-        let done = min(1, (t - 4.6) / 1.1)
-        let ms = Int(done * 843)
-        draw("\(ms) мс без ответа", at: CGPoint(x: CGFloat(W) / 2, y: y(920)),
-             font: mono(30, .medium), colour: flag, align: .center)
+    if t >= 5.0, t <= 7.2 {
+        let shown = fade(t, 5.0, 0.3) * (1 - fade(t, 6.9, 0.3))
+        let counted = Int(min(1, max(0, (t - 5.1) / 1.2)) * 843)
+        draw("\(counted) ms with no answer", at: CGPoint(x: CGFloat(W) / 2, y: y(935)),
+             font: mono(26), colour: rose, align: .center, alpha: shown)
     }
 
-    // Caption
     for beat in beats where t >= beat.start && t < beat.end {
-        let fade = min(1, min((t - beat.start) / 0.3, (beat.end - t) / 0.3))
-        drawMultiline(beat.caption, centeredAt: CGFloat(W) / 2, top: 1020,
-                      font: font(31), colour: ink2, alpha: max(0, fade), strong: beat.strong)
+        let on = min(fade(t, beat.start, 0.35), 1 - fade(t, beat.end - 0.35, 0.35))
+        drawCaption(beat.text, top: 1065, alpha: on, strong: beat.strong)
     }
 
-    // The tally, at the end
-    if t >= 9.4 {
-        let appear = min(1, (t - 9.4) / 0.6)
-        let tiles: [(String, String)] = [("2", "запроса"), ("1", "списание"), ("843", "мс"), ("1", "ключ")]
-        let width: CGFloat = 200, gap: CGFloat = 18
-        let total = CGFloat(tiles.count) * width + CGFloat(tiles.count - 1) * gap
-        var x = (CGFloat(W) - total) / 2
-        for (number, label) in tiles {
-            roundedRect(ctx, CGRect(x: x, y: y(1240), width: width, height: 130), radius: 16,
-                        fill: lane.withAlphaComponent(appear))
-            draw(number, at: CGPoint(x: x + width / 2, y: y(1180)), font: font(52, .bold),
-                 colour: ink, align: .center, alpha: appear)
-            draw(label, at: CGPoint(x: x + width / 2, y: y(1228)), font: font(22),
-                 colour: ink3, align: .center, alpha: appear)
-            x += width + gap
+    if t >= 11.2 {
+        let appear = fade(t, 11.2, 0.7)
+        hairline(ctx, from: CGPoint(x: left, y: y(1200)), to: CGPoint(x: right, y: y(1200)),
+                 colour: rule.withAlphaComponent(appear))
+        let items = [("2", "REQUESTS"), ("1", "CHARGE"), ("843", "MS"), ("1", "KEY")]
+        let step = (right - left) / CGFloat(items.count)
+        for (index, item) in items.enumerated() {
+            let x = left + step * (CGFloat(index) + 0.5)
+            draw(item.0, at: CGPoint(x: x, y: y(1272)), font: serif(46), colour: ink,
+                 align: .center, alpha: appear)
+            draw(item.1, at: CGPoint(x: x, y: y(1302)), font: sans(14, .medium),
+                 colour: ink3, align: .center, alpha: appear, tracking: 2.4)
+            if index > 0 {
+                hairline(ctx, from: CGPoint(x: left + step * CGFloat(index), y: y(1290)),
+                         to: CGPoint(x: left + step * CGFloat(index), y: y(1230)),
+                         colour: rule.withAlphaComponent(appear))
+            }
         }
     }
 
     NSGraphicsContext.restoreGraphicsState()
 }
 
-// MARK: - Encode
+// MARK: - Output
 
-// `--png <seconds> <path>` renders one frame instead, for checking the drawing.
-if CommandLine.arguments.count > 3, CommandLine.arguments[1] == "--png" {
-    let t = Double(CommandLine.arguments[2]) ?? 0
-    let path = CommandLine.arguments[3]
-    let space = CGColorSpaceCreateDeviceRGB()
+let space = CGColorSpaceCreateDeviceRGB()
+let bitmapInfo = CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+
+func render(at t: Double) -> CGImage {
     guard let ctx = CGContext(data: nil, width: W, height: H, bitsPerComponent: 8,
-                              bytesPerRow: 0, space: space,
-                              bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
-                                        | CGBitmapInfo.byteOrder32Little.rawValue)
+                              bytesPerRow: 0, space: space, bitmapInfo: bitmapInfo)
     else { fatalError("no context") }
+    ctx.setShouldAntialias(true)
     drawFrame(ctx, time: t)
     guard let image = ctx.makeImage() else { fatalError("no image") }
+    return image
+}
+
+if CommandLine.arguments.count > 3, CommandLine.arguments[1] == "--png" {
+    let image = render(at: Double(CommandLine.arguments[2]) ?? 0)
     let rep = NSBitmapImageRep(cgImage: image)
-    try rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
-    print("wrote \(path)")
+    try rep.representation(using: .png, properties: [:])!
+        .write(to: URL(fileURLWithPath: CommandLine.arguments[3]))
+    print("wrote \(CommandLine.arguments[3])")
     exit(0)
 }
 
@@ -306,42 +316,31 @@ writer.startWriting()
 writer.startSession(atSourceTime: .zero)
 
 let frames = Int(duration * Double(fps))
-let space = CGColorSpaceCreateDeviceRGB()
-
 for frame in 0..<frames {
     while !input.isReadyForMoreMediaData { usleep(2000) }
+
+    // Drawn into a context of our own and blitted across. Drawing straight into the
+    // pixel buffer's memory loses everything after the first fill: AppKit's text
+    // drawing and that backing store disagree about who owns the bits.
+    let image = render(at: Double(frame) / Double(fps))
 
     guard let pool = adaptor.pixelBufferPool else { fatalError("no pixel buffer pool") }
     var maybeBuffer: CVPixelBuffer?
     CVPixelBufferPoolCreatePixelBuffer(nil, pool, &maybeBuffer)
     guard let buffer = maybeBuffer else { fatalError("no pixel buffer") }
 
-    // Drawn into a context of our own and blitted across. Drawing straight into the
-    // pixel buffer's memory loses everything after the first fill — AppKit's text
-    // drawing and the buffer's backing store do not agree about who owns the bits.
-    guard let scratch = CGContext(data: nil, width: W, height: H, bitsPerComponent: 8,
-                                  bytesPerRow: 0, space: space,
-                                  bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
-                                            | CGBitmapInfo.byteOrder32Little.rawValue)
-    else { fatalError("no scratch context") }
-    scratch.setShouldAntialias(true)
-    drawFrame(scratch, time: Double(frame) / Double(fps))
-    guard let image = scratch.makeImage() else { fatalError("no image") }
-
     CVPixelBufferLockBaseAddress(buffer, [])
     guard let ctx = CGContext(data: CVPixelBufferGetBaseAddress(buffer),
                               width: W, height: H, bitsPerComponent: 8,
                               bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
-                              space: space,
-                              bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
-                                        | CGBitmapInfo.byteOrder32Little.rawValue)
-    else { fatalError("no context") }
+                              space: space, bitmapInfo: bitmapInfo)
+    else { fatalError("no buffer context") }
     ctx.draw(image, in: CGRect(x: 0, y: 0, width: W, height: H))
     ctx.flush()
     CVPixelBufferUnlockBaseAddress(buffer, [])
-    adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: fps))
 
-    if frame % 60 == 0 { FileHandle.standardError.write("frame \(frame)/\(frames)\n".data(using: .utf8)!) }
+    adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: fps))
+    if frame % 90 == 0 { FileHandle.standardError.write("frame \(frame)/\(frames)\n".data(using: .utf8)!) }
 }
 
 input.markAsFinished()
@@ -349,9 +348,8 @@ let done = DispatchSemaphore(value: 0)
 writer.finishWriting { done.signal() }
 done.wait()
 
-if writer.status == .completed {
-    print("wrote \(outPath)")
-} else {
+guard writer.status == .completed else {
     print("failed: \(writer.error?.localizedDescription ?? "unknown")")
     exit(1)
 }
+print("wrote \(outPath)")
