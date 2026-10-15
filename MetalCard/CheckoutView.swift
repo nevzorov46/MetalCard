@@ -10,7 +10,7 @@ struct CheckoutView: View {
     let card: Card
     @State private var checkout: Checkout
 
-    init(card: Card, gateway: PaymentGateway) {
+    init(card: Card, gateway: any ChargeGateway) {
         self.card = card
         _checkout = State(initialValue: Checkout(amount: Money(minorUnits: 480, currency: .sgd),
                                                  merchant: .sample,

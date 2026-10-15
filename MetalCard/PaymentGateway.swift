@@ -73,7 +73,7 @@ actor PaymentGateway {
 
 /// Retries under the same key, with a growing pause. Only a lost response is retried.
 struct PaymentClient: Sendable {
-    var gateway: PaymentGateway
+    var gateway: any ChargeGateway
     var maxAttempts = 3
 
     /// `onAttempt` reports which try is in flight, so the screen can say "Retrying".

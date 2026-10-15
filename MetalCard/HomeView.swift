@@ -18,7 +18,15 @@ struct HomeView: View {
     @State private var showsThemes = false
     @State private var showsCheckout = false
     /// One gateway for the whole session, so its idempotency record survives between sheets.
-    @State private var gateway = PaymentGateway(responsesToDrop: 1)
+    /// Launch with `-remote http://localhost:8080` to pay against `server/` instead.
+    @State private var gateway: any ChargeGateway = {
+        let arguments = ProcessInfo.processInfo.arguments
+        if let i = arguments.firstIndex(of: "-remote"), i + 1 < arguments.count,
+           let url = URL(string: arguments[i + 1]) {
+            return RemoteGateway(baseURL: url)
+        }
+        return PaymentGateway(responsesToDrop: 1)
+    }()
     @State private var drag: CGSize = .zero
     @State private var flip: Double = 0           // degrees; each fling to the side adds a half turn
     @GestureState private var holding = false     // a finger is on the open card
