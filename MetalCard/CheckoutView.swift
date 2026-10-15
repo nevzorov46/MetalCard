@@ -21,13 +21,18 @@ struct CheckoutView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            merchant.padding(.top, 34)
-            amount.padding(.top, 26).padding(.bottom, 30)
-            Divider().overlay(palette.inkTertiary.opacity(0.2)).padding(.horizontal, 24)
-            payingWith.padding(.vertical, 18)
-            Spacer(minLength: 0)
-            status.padding(.horizontal, 24).padding(.bottom, 14)
-            button.padding(.horizontal, 24).padding(.bottom, 26)
+            if case .approved(let receipt) = checkout.phase {
+                ReceiptView(receipt: receipt, cardName: card.name) { dismiss() }
+                    .transition(.opacity)
+            } else {
+                merchant.padding(.top, 34)
+                amount.padding(.top, 26).padding(.bottom, 30)
+                Divider().overlay(palette.inkTertiary.opacity(0.2)).padding(.horizontal, 24)
+                payingWith.padding(.vertical, 18)
+                Spacer(minLength: 0)
+                status.padding(.horizontal, 24).padding(.bottom, 14)
+                button.padding(.horizontal, 24).padding(.bottom, 26)
+            }
         }
         .background(palette.canvas)
         .animation(.smooth(duration: 0.3), value: checkout.phase)
