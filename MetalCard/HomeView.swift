@@ -17,6 +17,7 @@ struct HomeView: View {
     @State private var showsDetails = false
     @State private var showsThemes = false
     @State private var showsCheckout = false
+    @State private var openReceipt: Transaction?
     /// One gateway for the whole session, so its idempotency record survives between sheets.
     /// Launch with `-remote http://localhost:8080` to pay against `server/` instead.
     @State private var gateway: any ChargeGateway = {
@@ -270,14 +271,25 @@ struct HomeView: View {
             Text("Total balance")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(palette.inkTertiary)
+            let total = wallet.total.formatted
+            // "€14,512.07" → the cents set smaller, the way a bank prints a balance.
+            let split = total.lastIndex(where: { $0 == "." || $0 == "," }).map { i in
+                (String(total[..<i]), String(total[i...]))
+            } ?? (total, "")
             HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("€12,480")
+                Text(split.0)
                     .font(.display(58))
                     .foregroundStyle(palette.ink)
-                Text(".20")
+                Text(split.1)
                     .font(.display(34))
                     .foregroundStyle(palette.inkTertiary)
             }
+            .contentTransition(.numericText())
+            .animation(.smooth(duration: 0.5), value: wallet.total)
+            Text("\(Currency.allCases.count) currencies · shown in \(Currency.home.rawValue)")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(palette.inkTertiary)
+                .padding(.top, 4)
         }
         .padding(.horizontal, 24)
     }
@@ -294,7 +306,14 @@ struct HomeView: View {
         .padding(.horizontal, 24)
         .sheet(isPresented: $showsCheckout) {
             if let id = currentCard ?? wallet.cards.first?.id, let card = wallet.card(id) {
-                CheckoutView(card: card, gateway: gateway)
+                PayView(card: card, gateway: gateway, isPresented: $showsCheckout)
+                    .presentationDetents([.height(560)])
+                    .presentationDragIndicator(.visible)
+            }
+        }
+        .sheet(item: $openReceipt) { tx in
+            if let receipt = tx.receipt {
+                ReceiptView(receipt: receipt, cardName: tx.cardName) { openReceipt = nil }
                     .presentationDetents([.height(520)])
                     .presentationDragIndicator(.visible)
             }
@@ -391,6 +410,9 @@ struct HomeView: View {
     private var transactions: some View {
         VStack(spacing: 18) {
             ForEach(wallet.transactions) { tx in
+                Button {
+                    if tx.receipt != nil { openReceipt = tx }
+                } label: {
                 HStack(spacing: 14) {
                     Image(systemName: tx.symbol)
                         .font(.system(size: 17, weight: .semibold))
@@ -406,13 +428,17 @@ struct HomeView: View {
                             .foregroundStyle(palette.inkTertiary)
                     }
                     Spacer()
-                    Text(tx.amount)
+                    Text(tx.signedAmount)
                         .font(.system(size: 16, weight: .semibold).monospacedDigit())
                         .foregroundStyle(tx.incoming ? palette.positive : palette.ink)
                 }
+                .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 24)
+        .animation(.smooth(duration: 0.35), value: wallet.transactions.count)
     }
 }
 

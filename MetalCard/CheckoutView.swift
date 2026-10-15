@@ -5,15 +5,15 @@ import SwiftUI
 struct CheckoutView: View {
     @Environment(Wallet.self) private var wallet
     @Environment(\.theme) private var palette
-    @Environment(\.dismiss) private var dismiss
-
     let card: Card
+    let onClose: () -> Void
     @State private var checkout: Checkout
 
-    init(card: Card, gateway: any ChargeGateway) {
+    init(card: Card, offer: Offer, gateway: any ChargeGateway, onClose: @escaping () -> Void) {
         self.card = card
-        _checkout = State(initialValue: Checkout(amount: Money(minorUnits: 480, currency: .sgd),
-                                                 merchant: .sample,
+        self.onClose = onClose
+        _checkout = State(initialValue: Checkout(amount: offer.amount,
+                                                 merchant: offer.merchant,
                                                  client: PaymentClient(gateway: gateway)))
     }
 
@@ -22,7 +22,7 @@ struct CheckoutView: View {
     var body: some View {
         VStack(spacing: 0) {
             if case .approved(let receipt) = checkout.phase {
-                ReceiptView(receipt: receipt, cardName: card.name) { dismiss() }
+                ReceiptView(receipt: receipt, cardName: card.name, onDone: onClose)
                     .transition(.opacity)
             } else {
                 merchant.padding(.top, 34)
@@ -38,6 +38,11 @@ struct CheckoutView: View {
         .animation(.smooth(duration: 0.3), value: checkout.phase)
         .sensoryFeedback(.success, trigger: isApproved)
         .sensoryFeedback(.error, trigger: isFailed)
+        // The moment the payment is approved it becomes part of the wallet: balance
+        // and history move together, before the receipt is even on screen.
+        .onChange(of: checkout.phase) { _, phase in
+            if case .approved(let receipt) = phase { wallet.record(receipt, card: card) }
+        }
     }
 
     // MARK: Pieces
@@ -126,7 +131,7 @@ struct CheckoutView: View {
     private var button: some View {
         Button {
             switch checkout.phase {
-            case .approved: dismiss()
+            case .approved: onClose()
             case .failed:   checkout.pay(card: card, isFrozen: frozen)
             default:        checkout.pay(card: card, isFrozen: frozen)
             }

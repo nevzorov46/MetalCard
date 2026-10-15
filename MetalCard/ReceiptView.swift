@@ -32,6 +32,12 @@ struct ReceiptView: View {
                 row("Charge", receipt.id, mono: true)
                 divider
                 row("Paid at", receipt.completedAt.formatted(date: .omitted, time: .standard))
+                if receipt.amount.currency != .home {
+                    divider
+                    row("In \(Currency.home.rawValue)",
+                        "≈ " + FX.convert(receipt.amount, to: .home).formatted + "  ·  "
+                        + rateLine, mono: true)
+                }
                 if receipt.wasReplay {
                     divider
                     replayNote
@@ -91,6 +97,13 @@ struct ReceiptView: View {
                 .minimumScaleFactor(0.7)
         }
         .padding(.vertical, 13)
+    }
+
+    /// "1 SGD = 0.69 EUR", from the same table the conversion used.
+    private var rateLine: String {
+        let rate = FX.rate(from: receipt.amount.currency, to: .home)
+        let text = rate.formatted(.number.precision(.fractionLength(rate < 0.01 ? 4 : 2)))
+        return "1 \(receipt.amount.currency.rawValue) = \(text) \(Currency.home.rawValue)"
     }
 
     private var divider: some View {
