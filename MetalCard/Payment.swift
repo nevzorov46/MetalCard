@@ -2,8 +2,8 @@ import Foundation
 
 // MARK: - Money
 
-/// Money is counted in minor units — cents, not euros — and never in a binary float.
-/// `0.1 + 0.2` is not `0.3` in Double, and a payments ledger cannot afford that.
+/// Counted in minor units, never in a binary float: `0.1 + 0.2` is not `0.3` in Double,
+/// and a ledger cannot afford that.
 struct Money: Hashable, Sendable {
     var minorUnits: Int
     var currency: Currency
@@ -16,8 +16,8 @@ struct Money: Hashable, Sendable {
     }
 }
 
-/// The exponent is per currency: a yen has no subunit, a dinar has three.
-/// Hard-coding two decimals is the bug that only shows up once you cross a border.
+/// The exponent belongs to the currency — a yen has no subunit, a dinar has three.
+/// Hard-coding two decimals is the bug that only appears once you cross a border.
 enum Currency: String, Hashable, Sendable, CaseIterable {
     case eur = "EUR"
     case usd = "USD"
@@ -34,8 +34,8 @@ enum Currency: String, Hashable, Sendable, CaseIterable {
 
 // MARK: - Idempotency
 
-/// One key per *intent to pay*, not per request. Every retry of the same intent carries
-/// the same key, which is what lets the gateway tell a retry apart from a second purchase.
+/// One key per intent to pay, not per request — what lets the gateway tell a retry
+/// apart from a second purchase.
 struct IdempotencyKey: Hashable, Sendable, CustomStringConvertible {
     let value: String
 
@@ -66,23 +66,21 @@ struct Receipt: Hashable, Sendable, Identifiable {
     var merchant: Merchant
     var last4: String
     var completedAt: Date
-    /// True when the gateway answered from its idempotency record rather than charging again.
+    /// Answered from the idempotency record rather than charged again.
     var wasReplay: Bool = false
 }
 
 // MARK: - Errors
 
 enum PaymentError: Error, Equatable, Sendable {
-    /// The card is frozen. Caught on the device — this never reaches the network.
+    /// Caught on the device; never reaches the network.
     case cardFrozen
-    /// Face ID was dismissed or failed.
     case notAuthenticated
-    /// The response never came back. Safe to retry with the same key.
+    /// The response never came back. Safe to retry under the same key.
     case network
-    /// The gateway said no. Retrying is pointless and would be wrong.
+    /// An answer, not a failure — retrying it would be wrong.
     case declined(String)
-    /// The same key is already being charged. The gateway refuses the second one
-    /// rather than racing it.
+    /// The same key is already being charged.
     case duplicate
 
     var isRetriable: Bool { self == .network }
