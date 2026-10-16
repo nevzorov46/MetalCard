@@ -72,16 +72,6 @@ final class Wallet {
         return FX.convert(amount, to: left.currency).minorUnits <= left.minorUnits
     }
 
-    /// A gift card that has been paid for joins the wallet with its amount on it.
-    @discardableResult
-    func addGift(_ art: CardArt, amount: Money) -> Card {
-        let card = Card.gift(art)
-        cards.append(card)
-        giftBalances[card.id] = amount
-        persist()
-        return card
-    }
-
     /// A payment has gone through. Debit what paid for it — the gift card's own balance,
     /// or the balance in the charge's currency — and put the transaction at the top.
     /// Called once per receipt: a replayed receipt carries the same id as the first, and a

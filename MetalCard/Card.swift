@@ -23,6 +23,8 @@ struct Card: Identifiable, Hashable, Codable {
     var isVirtual = false
     /// A gift card's illustration. It brings its own colours, so the theme leaves it alone.
     var art: CardArt? = nil
+    /// Who gave it, for a gift card someone sent.
+    var from: String? = nil
 
     var finish: Finish { style == .metal ? .metal : .matte }
     var last4: String { String(number.suffix(4)) }
@@ -42,24 +44,6 @@ struct Card: Identifiable, Hashable, Codable {
         return isVirtual ? "Virtual card" : (finish == .metal ? "Metal card" : "Debit card")
     }
 
-    /// A new gift card. The number is random and, like the samples, fails Luhn on purpose.
-    static func gift(_ art: CardArt, holder: String = "VALERY NEVZOROV") -> Card {
-        var digits = [4] + (0..<14).map { _ in Int.random(in: 0...9) }
-        let sum = digits.reversed().enumerated().reduce(0) { total, pair in
-            var v = pair.element
-            if pair.offset.isMultiple(of: 2) { v *= 2; if v > 9 { v -= 9 } }
-            return total + v
-        }
-        digits.append(((10 - sum % 10) % 10 + 1) % 10)
-        let expiry = Calendar.current.date(byAdding: .year, value: 3, to: .now) ?? .now
-        return Card(id: "gift-" + UUID().uuidString.prefix(8).lowercased(),
-                    name: "\(art.displayName) gift",
-                    number: digits.map(String.init).joined(),
-                    expiry: expiry.formatted(.dateTime.month(.twoDigits).year(.twoDigits)),
-                    cvv: String(format: "%03d", Int.random(in: 0...999)),
-                    holder: holder, style: .primary, art: art)
-    }
-
     static let samples: [Card] = [
         Card(id: "everyday", name: "Everyday",
              number: "4000821093354821", expiry: "07/29", cvv: "418", holder: "VALERY NEVZOROV",
@@ -75,12 +59,12 @@ struct Card: Identifiable, Hashable, Codable {
              style: .tertiary, isVirtual: true),
         Card(id: "gift-birthday", name: "Birthday gift",
              number: "4532810077461203", expiry: "12/27", cvv: "305", holder: "VALERY NEVZOROV",
-             style: .primary, art: .confetti),
+             style: .primary, art: .confetti, from: "Mark Lee"),
         Card(id: "gift-winter", name: "Winter gift",
              number: "4024007193520876", expiry: "02/28", cvv: "771", holder: "VALERY NEVZOROV",
-             style: .primary, art: .night),
+             style: .primary, art: .night, from: "Anna Petrova"),
         Card(id: "gift-weekend", name: "Weekend gift",
              number: "4916338512064459", expiry: "09/28", cvv: "148", holder: "VALERY NEVZOROV",
-             style: .primary, art: .dusk)
+             style: .primary, art: .dusk, from: "Sofia Romano")
     ]
 }

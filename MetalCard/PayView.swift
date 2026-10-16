@@ -122,7 +122,7 @@ struct PayView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .tint(palette.ink)
             } else if let left = wallet.giftBalance(of: card) {
-                Text("\(left.formatted) left on this gift card")
+                Text([card.from.map { "From \($0)" }, "\(left.formatted) left"].compactMap { $0 }.joined(separator: " · "))
                     .font(.system(size: 14, weight: .semibold).monospacedDigit())
                     .foregroundStyle(palette.ink)
                     .contentTransition(.numericText())

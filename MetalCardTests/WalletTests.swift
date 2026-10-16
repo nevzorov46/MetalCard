@@ -203,36 +203,6 @@ struct GiftCardTests {
         #expect(wallet.canPay(Money(minorUnits: 1_840, currency: .eur), with: weekend))
     }
 
-    @Test("A bought gift card joins the wallet with its amount, and survives a relaunch")
-    func boughtGiftPersists() throws {
-        let store = WalletStore(url: FileManager.default.temporaryDirectory
-            .appending(path: "wallet-\(UUID().uuidString).json"))
-        let first = Wallet(store: store)
-        let count = first.cards.count
-        let card = first.addGift(.dusk, amount: Money(minorUnits: 20_000, currency: .sgd))
-
-        let second = Wallet(store: store)
-        #expect(second.cards.count == count + 1)
-        let restored = try #require(second.card(card.id))
-        #expect(restored.art == .dusk)
-        #expect(second.giftBalance(of: restored) == Money(minorUnits: 20_000, currency: .sgd))
-    }
-
-    @Test("A new gift card's number fails Luhn, like every sample")
-    func giftNumbersAreNotReal() {
-        for _ in 0..<50 {
-            let n = Card.gift(.night).number
-            let digits = n.compactMap(\.wholeNumberValue)
-            let sum = digits.reversed().enumerated().reduce(0) { t, p in
-                guard p.offset % 2 == 1 else { return t + p.element }
-                let d = p.element * 2
-                return t + (d > 9 ? d - 9 : d)
-            }
-            #expect(digits.count == 16)
-            #expect(sum % 10 != 0, "\(n) passes Luhn")
-        }
-    }
-
     @Test("A wallet saved before gift cards existed opens with the samples")
     func olderFilesStillOpen() throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "old-\(UUID().uuidString).json")
@@ -241,5 +211,33 @@ struct GiftCardTests {
         let wallet = Wallet(store: WalletStore(url: url))
         #expect(wallet.cards == Card.samples)
         #expect(wallet.giftBalances == Wallet.openingGiftBalances)
+    }
+}
+
+@MainActor
+@Suite("Sending a gift")
+struct SendingGiftTests {
+
+    @Test("A gift sent to someone is a payment from your card, and nothing joins your wallet")
+    func sendingLeavesTheWalletsCardsAlone() throws {
+        let wallet = Wallet(store: nil)
+        let everyday = try #require(wallet.card("everyday"))
+        let cards = wallet.cards
+        let sgd = wallet.balance(in: .sgd).minorUnits
+
+        let receipt = Receipt(id: "ch_gift", amount: Money(minorUnits: 10_000, currency: .sgd),
+                              merchant: Merchant(name: "Gift to Anna Petrova", category: "Celebration gift card",
+                                                 symbol: "gift.fill"),
+                              last4: "4821", completedAt: .now)
+        wallet.record(receipt, card: everyday)
+
+        #expect(wallet.cards == cards)
+        #expect(wallet.balance(in: .sgd).minorUnits == sgd - 10_000)
+        #expect(wallet.transactions.first?.title == "Gift to Anna Petrova")
+    }
+
+    @Test("Gift cards in the wallet say who they came from")
+    func receivedGiftsHaveASender() {
+        #expect(Card.samples.filter(\.isGift).allSatisfy { $0.from != nil })
     }
 }

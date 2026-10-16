@@ -326,12 +326,7 @@ struct HomeView: View {
             // Paid for with the card in view, unless that is itself a gift card.
             let inView = (currentCard ?? wallet.cards.first?.id).flatMap(wallet.card)
             if let funding = inView.flatMap({ $0.isGift ? nil : $0 }) ?? wallet.cards.first(where: { !$0.isGift }) {
-                BuyGiftView(funding: funding, gateway: gateway) { bought in
-                    showsGift = false
-                    if let bought {
-                        withAnimation(.smooth(duration: 0.6)) { currentCard = bought.id }
-                    }
-                }
+                SendGiftView(funding: funding, gateway: gateway) { showsGift = false }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
