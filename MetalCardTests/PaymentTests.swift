@@ -239,3 +239,20 @@ struct CardTests {
         return sum.isMultiple(of: 10)
     }
 }
+
+// MARK: - Remote gateway
+
+@Suite("Remote gateway")
+struct RemoteGatewayTests {
+
+    @Test("Nobody listening is 'unreachable' at once, not three network retries")
+    func refusedConnectionIsUnreachable() async throws {
+        // Port 9 (discard) is closed on a simulator host: the connection is refused.
+        let gateway = RemoteGateway(baseURL: URL(string: "http://127.0.0.1:9")!)
+        let request = ChargeRequest(idempotencyKey: IdempotencyKey(), cardID: "everyday",
+                                    amount: Money(minorUnits: 480, currency: .sgd), merchant: .sample)
+        await #expect(throws: PaymentError.unreachable) {
+            try await PaymentClient(gateway: gateway).pay(request, last4: "4821")
+        }
+    }
+}

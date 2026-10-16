@@ -32,6 +32,10 @@ struct RemoteGateway: ChargeGateway {
             (data, response) = try await session.data(for: http)
         } catch is CancellationError {
             throw CancellationError()
+        } catch let error as URLError where Self.neverConnected.contains(error.code) {
+            // Refused or unresolved: the request never left, so there is no charge to
+            // be unsure about and nothing to retry for.
+            throw PaymentError.unreachable
         } catch {
             // A closed connection and a timeout are the same thing to the caller:
             // no answer came back, and the charge may or may not have happened.
@@ -56,6 +60,10 @@ struct RemoteGateway: ChargeGateway {
             throw PaymentError.network
         }
     }
+
+    private static let neverConnected: Set<URLError.Code> = [
+        .cannotConnectToHost, .cannotFindHost, .notConnectedToInternet, .dnsLookupFailed
+    ]
 
     // MARK: Wire format
 

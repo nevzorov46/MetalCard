@@ -107,6 +107,8 @@ enum PaymentError: Error, Equatable, Sendable {
     case declined(String)
     /// The same key is already being charged.
     case duplicate
+    /// No connection was made at all, so nothing was sent and nothing can have been charged.
+    case unreachable
 
     var isRetriable: Bool { self == .network }
 
@@ -117,6 +119,7 @@ enum PaymentError: Error, Equatable, Sendable {
         case .network:          "No answer from the bank"
         case .declined(let r):  r
         case .duplicate:        "Already paying"
+        case .unreachable:      "Can't reach the gateway"
         }
     }
 }
