@@ -21,50 +21,98 @@ struct Offer: Identifiable, Hashable {
     ]
 }
 
-/// The pay sheet: pick a merchant, then the checkout for it. Both stay inside this one
-/// sheet, and `Done` on the receipt closes the whole thing.
+/// The pay sheet. The card on top, merchants below; tapping a merchant is the payment —
+/// Face ID comes straight up over the list, the row shows where the payment is, and the
+/// receipt follows. There is no screen in between asking the same question again.
 struct PayView: View {
     @Environment(Wallet.self) private var wallet
     @Environment(\.theme) private var palette
+    @Environment(MotionTilt.self) private var motion
 
     let card: Card
     let gateway: any ChargeGateway
     @Binding var isPresented: Bool
 
-    @State private var chosen: Offer?
+    @State private var checkout: Checkout?
+    @State private var paying: Offer?
+    @State private var receipt: Receipt?
+
+    private var frozen: Bool { wallet.isFrozen(card) }
+    private var busy: Bool { checkout?.phase.isBusy ?? false }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                header.padding(.top, 30).padding(.bottom, 22)
-                ForEach(Offer.all) { offer in
-                    Button { chosen = offer } label: { row(offer) }
-                        .buttonStyle(.plain)
+            ScrollView {
+                VStack(spacing: 0) {
+                    header.padding(.top, 26).padding(.bottom, 18)
+                    ForEach(Offer.all) { offer in
+                        Button { pay(offer) } label: { row(offer) }
+                            .buttonStyle(.plain)
+                            .disabled(busy || frozen)
+                            .opacity((busy && paying != offer) || frozen ? 0.45 : 1)
+                    }
                 }
-                Spacer(minLength: 0)
+                .padding(.bottom, 24)
             }
             .background(palette.canvas)
-            .navigationDestination(item: $chosen) { offer in
-                CheckoutView(card: card, offer: offer, gateway: gateway) { isPresented = false }
-                    .navigationBarBackButtonHidden(false)
+            .navigationDestination(item: $receipt) { receipt in
+                ReceiptView(receipt: receipt, cardName: card.name) { isPresented = false }
+                    .background(palette.canvas)
                     .toolbar(.hidden, for: .navigationBar)
+            }
+        }
+        .sensoryFeedback(.success, trigger: receipt)
+        .sensoryFeedback(.error, trigger: failed)
+        .onChange(of: checkout?.phase) { _, phase in
+            // Approved: into the wallet at once, then the receipt.
+            if case .approved(let r) = phase {
+                wallet.record(r, card: card)
+                Task {
+                    try? await Task.sleep(for: .milliseconds(250))
+                    receipt = r
+                }
             }
         }
     }
 
+    // MARK: Paying
+
+    private func pay(_ offer: Offer) {
+        // The same merchant after a failure is the same purchase: same checkout, same key.
+        if paying != offer || checkout == nil {
+            paying = offer
+            checkout = Checkout(amount: offer.amount, merchant: offer.merchant,
+                                client: PaymentClient(gateway: gateway))
+        }
+        checkout?.pay(card: card, isFrozen: frozen)
+    }
+
+    private var failed: Bool {
+        if case .failed = checkout?.phase { true } else { false }
+    }
+
+    // MARK: Pieces
+
     private var header: some View {
-        VStack(spacing: 6) {
-            Text("Pay")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(palette.ink)
-            Text("With \(card.name) ···· \(card.last4)")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(palette.inkTertiary)
+        VStack(spacing: 14) {
+            CardView(card: card, tilt: motion.tilt, frost: frozen ? 1 : 0)
+                .frame(width: 214)
+                .animation(frozen ? .freeze : .thaw, value: frozen)
+            if frozen {
+                Button("Card frozen · Unfreeze") { wallet.toggleFreeze(card) }
+                    .font(.system(size: 14, weight: .semibold))
+                    .tint(palette.ink)
+            } else {
+                Text("Tap to pay")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(palette.inkTertiary)
+            }
         }
     }
 
     private func row(_ offer: Offer) -> some View {
-        HStack(spacing: 14) {
+        let active = paying == offer
+        return HStack(spacing: 14) {
             Image(systemName: offer.merchant.symbol)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(palette.ink)
@@ -74,9 +122,11 @@ struct PayView: View {
                 Text(offer.merchant.name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(palette.ink)
-                Text(offer.merchant.category)
+                Text(active ? status : offer.merchant.category)
                     .font(.system(size: 13))
-                    .foregroundStyle(palette.inkTertiary)
+                    .foregroundStyle(active && failed ? palette.ink : palette.inkTertiary)
+                    .contentTransition(.opacity)
+                    .animation(.smooth(duration: 0.25), value: status)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 3) {
@@ -89,12 +139,32 @@ struct PayView: View {
                         .foregroundStyle(palette.inkTertiary)
                 }
             }
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(palette.inkTertiary)
+            Group {
+                if active && busy {
+                    ProgressView().tint(palette.inkTertiary)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(palette.inkTertiary)
+                }
+            }
+            .frame(width: 18)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 12)
+        .background(active && busy ? palette.surface : .clear)
         .contentShape(Rectangle())
+    }
+
+    /// What the active row says while it is paying.
+    private var status: String {
+        switch checkout?.phase {
+        case .confirming:                     "Confirm with Face ID"
+        case .charging(let n) where n > 1:    "No answer — retrying with the same key"
+        case .charging:                       "Paying…"
+        case .approved:                       "Paid"
+        case .failed(let error):              "\(error.message) · tap to try again"
+        default:                              ""
+        }
     }
 }
