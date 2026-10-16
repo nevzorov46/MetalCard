@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftUI
 @testable import MetalCard
 
 // MARK: - Exchange
@@ -135,5 +136,36 @@ struct PersistenceTests {
         let wallet = Wallet(store: temporaryStore())
         #expect(wallet.balances == Wallet.openingBalances)
         #expect(wallet.transactions == Transaction.samples)
+    }
+}
+
+// MARK: - Accent
+
+@Suite("Accent")
+struct AccentTests {
+
+    @Test("A light accent gets dark text, a dark one gets white")
+    func textFollowsTheColour() {
+        #expect(Theme.prefersDarkText(on: 0xF5C542))      // saffron
+        #expect(Theme.prefersDarkText(on: 0xB9AEF0))      // lavender
+        #expect(!Theme.prefersDarkText(on: 0x2F3E75))     // navy
+        #expect(!Theme.prefersDarkText(on: 0x5B2A86))     // violet
+    }
+
+    @Test("Overriding the accent leaves the rest of the theme as it was")
+    func onlyTheAccentChanges() {
+        let theme = Theme.graphite
+        let tinted = theme.withAccent(0x3FB8A0)
+        #expect(tinted.accent == Color(hex: 0x3FB8A0))
+        #expect(tinted.canvas == theme.canvas)
+        #expect(tinted.primary == theme.primary)
+        #expect(tinted.isDark == theme.isDark)
+    }
+
+    @Test("Gift cards bring their own colours and say what they are")
+    func giftCards() {
+        let gifts = Card.samples.filter(\.isGift)
+        #expect(gifts.count == 3)
+        #expect(gifts.allSatisfy { $0.kindLabel == "Gift card" })
     }
 }

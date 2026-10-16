@@ -251,7 +251,7 @@ struct HomeView: View {
         .padding(.horizontal, 24)
         .sheet(isPresented: $showsThemes) {
             ThemePicker()
-                .presentationDetents([.height(330)])
+                .presentationDetents([.height(620), .large])
                 .presentationDragIndicator(.visible)
         }
     }

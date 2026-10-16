@@ -22,8 +22,8 @@ struct CardView: View, Animatable {
     }
 
     @Environment(\.theme) private var palette
-    private var base: Color { palette.colourway(card.style).base }
-    private var ink: Color { palette.colourway(card.style).ink }
+    private var base: Color { card.art?.base ?? palette.colourway(card.style).base }
+    private var ink: Color { card.art?.ink ?? palette.colourway(card.style).ink }
 
     var body: some View {
         let side = Self.side(flip)
@@ -66,7 +66,7 @@ struct CardView: View, Animatable {
 
     // Built as overlays on the base fill: overlays never change the size of what they sit on,
     // so the oversized decorative leaf can't push the layout around. Both sides share the
-    // plastic — fill, grain, sheen, rim — and differ only in what is printed on it.
+    // plastic — fill, grain, sheen — and differ only in what is printed on it.
     private func face(width w: CGFloat, back: Bool, light: CGSize, frostTime: Double) -> some View {
         let shape = RoundedRectangle(cornerRadius: w * Self.cornerRatio, style: .continuous)
         let glare = Float(lift)
@@ -75,27 +75,45 @@ struct CardView: View, Animatable {
         // apart as the card turns.
         let print = CGSize(width: tilt.width * w * 0.010, height: tilt.height * w * 0.010)
         let under = CGSize(width: -tilt.width * w * 0.022, height: -tilt.height * w * 0.022)
-        // The rim catches the light on the side the card is turned towards.
-        let rimFrom = UnitPoint(x: 0.5 - light.width * 0.5, y: -light.height * 0.5)
-        let rimTo = UnitPoint(x: 0.5 + light.width * 0.5, y: 1 + light.height * 0.5)
         let leaf = LeafShape(vein: false)
             .fill(ink.opacity(0.08))
             .frame(width: w * 1.05, height: w * 1.05)
 
         return shape
             .fill(base)     // shows through only if Metal is unavailable
+            // A gift card is printed, not a material: its ground is the art's own colour,
+            // flat, whatever the theme's light would do to it.
             .overlay {
-                CardSurface(finish: card.finish, base: base,
-                            environment: .init(sky: palette.canvas,
-                                               bounce: palette.accent,
-                                               ground: palette.surface.darkened(0.45)),
-                            tilt: light, glare: lift, frost: frost)
-                    .clipShape(shape)
+                if !card.isGift {
+                    CardSurface(finish: card.finish, base: base,
+                                environment: .init(sky: palette.canvas,
+                                                   bounce: palette.accent,
+                                                   ground: palette.surface.darkened(0.45)),
+                                tilt: light, glare: lift, frost: frost)
+                        .clipShape(shape)
+                }
+            }
+            // The drawing, between the ground and the print. Slightly oversized so the
+            // parallax never shows its edge; faint on the back.
+            .overlay {
+                if let art = card.art {
+                    CardArtView(art: art)
+                        .scaleEffect(x: back ? -1.06 : 1.06, y: 1.06)
+                        .offset(under)
+                        .opacity(back ? 0.30 : 1)
+                    // Gloss on the laminate: a soft band that slides with the tilt.
+                    LinearGradient(colors: [.white.opacity(0), .white.opacity(0.14 + lift * 0.06), .white.opacity(0)],
+                                   startPoint: UnitPoint(x: 0.0 + light.width * 0.35, y: 0.0),
+                                   endPoint: UnitPoint(x: 0.9 + light.width * 0.35, y: 1.0))
+                        .blendMode(.plusLighter)
+                }
             }
             // An oversized leaf, tone on tone, sweeping off the right edge of the front.
             // The back shows the same leaf from behind: mirrored, off the left edge.
             .overlay(alignment: .topLeading) {
-                if back {
+                if card.isGift {
+                    EmptyView()
+                } else if back {
                     leaf.scaleEffect(x: -1)
                         .offset(x: -w * 0.47 + under.width, y: -w * 0.10 + under.height)
                         .transition(.identity)
@@ -115,12 +133,6 @@ struct CardView: View, Animatable {
                 }
                 .modifier(FrostEffect(progress: frost, tilt: light, time: frostTime))
             }
-            .overlay(
-                shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.45 + lift * 0.2),
-                                                           .white.opacity(0.05), .clear],
-                                                  startPoint: rimFrom, endPoint: rimTo),
-                                   lineWidth: 1)
-            )
             .frame(width: w, height: w / Self.aspect)
             .compositingGroup()
             .clipShape(shape)
@@ -137,13 +149,10 @@ struct CardView: View, Animatable {
 
             Spacer(minLength: 0)
 
-            if card.isVirtual {
-                Text("VIRTUAL")
-                    .font(.system(size: w * 0.032, weight: .bold))
-                    .tracking(w * 0.006)
-                    .padding(.horizontal, w * 0.025)
-                    .padding(.vertical, w * 0.012)
-                    .overlay(Capsule().strokeBorder(ink.opacity(0.5), lineWidth: 1))
+            if card.isGift {
+                label("GIFT CARD", width: w)
+            } else if card.isVirtual {
+                label("VIRTUAL", width: w)
             } else {
                 ChipView(width: w * 0.125)
             }
@@ -171,6 +180,15 @@ struct CardView: View, Animatable {
         .foregroundStyle(ink)
         .padding(w * 0.064)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func label(_ text: String, width w: CGFloat) -> some View {
+        Text(text)
+            .font(.system(size: w * 0.032, weight: .bold))
+            .tracking(w * 0.006)
+            .padding(.horizontal, w * 0.025)
+            .padding(.vertical, w * 0.012)
+            .overlay(Capsule().strokeBorder(ink.opacity(0.5), lineWidth: 1))
     }
 
     // MARK: Back

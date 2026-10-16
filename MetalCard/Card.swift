@@ -21,6 +21,8 @@ struct Card: Identifiable, Hashable {
     var holder: String
     var style: Style
     var isVirtual = false
+    /// A gift card's illustration. It brings its own colours, so the theme leaves it alone.
+    var art: CardArt? = nil
 
     var finish: Finish { style == .metal ? .metal : .matte }
     var last4: String { String(number.suffix(4)) }
@@ -33,7 +35,12 @@ struct Card: Identifiable, Hashable {
         }.joined(separator: " ")
     }
 
-    var kindLabel: String { isVirtual ? "Virtual card" : (finish == .metal ? "Metal card" : "Debit card") }
+    var isGift: Bool { art != nil }
+
+    var kindLabel: String {
+        if isGift { return "Gift card" }
+        return isVirtual ? "Virtual card" : (finish == .metal ? "Metal card" : "Debit card")
+    }
 
     static let samples: [Card] = [
         Card(id: "everyday", name: "Everyday",
@@ -47,6 +54,15 @@ struct Card: Identifiable, Hashable {
              style: .secondary),
         Card(id: "online", name: "Online",
              number: "4111220033445566", expiry: "05/27", cvv: "617", holder: "VALERY NEVZOROV",
-             style: .tertiary, isVirtual: true)
+             style: .tertiary, isVirtual: true),
+        Card(id: "gift-birthday", name: "Birthday gift",
+             number: "4532810077461203", expiry: "12/27", cvv: "305", holder: "VALERY NEVZOROV",
+             style: .primary, art: .confetti),
+        Card(id: "gift-winter", name: "Winter gift",
+             number: "4024007193520876", expiry: "02/28", cvv: "771", holder: "VALERY NEVZOROV",
+             style: .primary, art: .night),
+        Card(id: "gift-weekend", name: "Weekend gift",
+             number: "4916338512064459", expiry: "09/28", cvv: "148", holder: "VALERY NEVZOROV",
+             style: .primary, art: .dusk)
     ]
 }

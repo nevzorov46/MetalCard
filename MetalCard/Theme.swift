@@ -126,6 +126,52 @@ extension Theme {
     }
 }
 
+extension Theme {
+    /// Accents offered as swatches. Anything else comes from the colour picker.
+    static let accentSwatches: [UInt32] = [
+        0x7FA8C4, 0x5B8DEF, 0x7B96FF, 0xB9AEF0, 0xC77DDB,
+        0xFF8FA3, 0xE5484D, 0xF5C542, 0x8CCB7E, 0x3FB8A0
+    ]
+
+    /// The same theme with its accent replaced. What sits on the accent and the soft tint
+    /// behind it are worked out from the colour, so any colour stays legible.
+    func withAccent(_ rgb: UInt32) -> Theme {
+        var t = self
+        t.accent = Color(hex: rgb)
+        t.onAccent = Self.prefersDarkText(on: rgb) ? Color(hex: 0x14131A) : .white
+        t.accentSoft = Color(hex: Self.mix(rgb, isDark ? 0x15171B : 0xFFFFFF, isDark ? 0.80 : 0.86))
+        return t
+    }
+
+    /// WCAG relative luminance: dark text wins once the colour is lighter than about 0.18.
+    static func prefersDarkText(on rgb: UInt32) -> Bool {
+        func channel(_ shift: UInt32) -> Double {
+            let v = Double((rgb >> shift) & 0xFF) / 255
+            return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+        return (luminance + 0.05) / 0.05 > 1.05 / (luminance + 0.05)
+    }
+
+    private static func mix(_ a: UInt32, _ b: UInt32, _ t: Double) -> UInt32 {
+        func c(_ v: UInt32, _ shift: UInt32) -> Double { Double((v >> shift) & 0xFF) }
+        func m(_ shift: UInt32) -> UInt32 {
+            UInt32((c(a, shift) + (c(b, shift) - c(a, shift)) * t).rounded()) << shift
+        }
+        return m(16) | m(8) | m(0)
+    }
+}
+
+extension Color {
+    /// 0xRRGGBB, clamped: the colour picker can hand back values outside sRGB.
+    var rgb24: UInt32 {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        func c(_ v: CGFloat) -> UInt32 { UInt32(max(0, min(255, (v * 255).rounded()))) }
+        return c(r) << 16 | c(g) << 8 | c(b)
+    }
+}
+
 extension EnvironmentValues {
     @Entry var theme: Theme = .lavender
 }
@@ -137,17 +183,36 @@ final class Appearance {
         didSet { UserDefaults.standard.set(themeID, forKey: Self.key) }
     }
 
-    var theme: Theme { Theme.named(themeID) }
+    /// An accent chosen over the theme's own; nil follows the theme.
+    var accentRGB: UInt32? {
+        didSet {
+            if let accentRGB { UserDefaults.standard.set(Int(accentRGB), forKey: Self.accentKey) }
+            else { UserDefaults.standard.removeObject(forKey: Self.accentKey) }
+        }
+    }
+
+    var theme: Theme {
+        let theme = Theme.named(themeID)
+        guard let accentRGB else { return theme }
+        return theme.withAccent(accentRGB)
+    }
 
     private static let key = "theme"
+    private static let accentKey = "accent"
 
     init() {
         themeID = UserDefaults.standard.string(forKey: Self.key) ?? Theme.lavender.id
+        accentRGB = (UserDefaults.standard.object(forKey: Self.accentKey) as? Int).map { UInt32($0) }
         #if DEBUG
         // `-theme <id>` starts in that theme, for screenshots.
         let arguments = ProcessInfo.processInfo.arguments
         if let i = arguments.firstIndex(of: "-theme"), i + 1 < arguments.count {
             themeID = arguments[i + 1]
+        }
+        // `-accent RRGGBB` starts with that accent.
+        if let i = arguments.firstIndex(of: "-accent"), i + 1 < arguments.count,
+           let rgb = UInt32(arguments[i + 1], radix: 16) {
+            accentRGB = rgb
         }
         #endif
     }
