@@ -118,7 +118,7 @@ struct ReceiptView: View {
         HStack(spacing: 9) {
             Image(systemName: "arrow.trianglehead.counterclockwise")
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(palette.accent)
+                .foregroundStyle(palette.inkSecondary)
             Text("The first answer was lost. Replayed from the idempotency key — charged once.")
                 .font(.system(size: 13))
                 .foregroundStyle(palette.inkSecondary)

@@ -39,6 +39,12 @@ struct CheckoutView: View {
         .animation(.smooth(duration: 0.3), value: checkout.phase)
         .sensoryFeedback(.success, trigger: isApproved)
         .sensoryFeedback(.error, trigger: isFailed)
+        // Choosing the merchant is the decision to pay: Face ID comes straight up, once the
+        // push has settled. A frozen card waits for Unfreeze instead.
+        .task {
+            try? await Task.sleep(for: .milliseconds(350))
+            if checkout.phase == .ready && !frozen { checkout.pay(card: card, isFrozen: frozen) }
+        }
         // The moment the payment is approved it becomes part of the wallet: balance
         // and history move together, before the receipt is even on screen.
         .onChange(of: checkout.phase) { _, phase in
@@ -79,7 +85,10 @@ struct CheckoutView: View {
                 .frame(width: 236)
                 .animation(frozen ? .freeze : .thaw, value: frozen)
             if frozen {
-                Button("Unfreeze to pay") { wallet.toggleFreeze(card) }
+                Button("Unfreeze to pay") {
+                    wallet.toggleFreeze(card)
+                    checkout.pay(card: card, isFrozen: false)
+                }
                     .font(.system(size: 14, weight: .semibold))
                     .tint(palette.ink)
             }
