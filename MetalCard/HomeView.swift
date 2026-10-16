@@ -19,6 +19,8 @@ struct HomeView: View {
     @State private var showsCheckout = false
     @State private var openReceipt: Transaction?
     @State private var showsGift = false
+    @State private var showsOnline = false
+    @State private var openSubscription: Subscription.ID?
     /// One gateway for the whole session, so its idempotency record survives between sheets.
     /// Launch with `-remote http://localhost:8080` to pay against `server/` instead.
     @State private var gateway: any ChargeGateway = {
@@ -86,6 +88,11 @@ struct HomeView: View {
                 sectionTitle("Cards", trailing: "\(wallet.cards.count) cards").padding(.bottom, 16)
                 carousel.padding(.bottom, 18)
                 pageDots.padding(.bottom, 40)
+                if !wallet.subscriptions.isEmpty {
+                    sectionTitle("Subscriptions", trailing: "\(wallet.subscriptions.filter { $0.status != .cancelled }.count) active")
+                        .padding(.bottom, 14)
+                    subscriptions.padding(.bottom, 36)
+                }
                 sectionTitle("Transactions", trailing: "See all").padding(.bottom, 18)
                 transactions
             }
@@ -303,9 +310,21 @@ struct HomeView: View {
             .buttonStyle(.plain)
             Button { showsGift = true } label: { pill("Gift", "gift") }
                 .buttonStyle(.plain)
-            pill("Add money", "plus")
+            Button { showsOnline = true } label: { pill("Online", "globe") }
+                .buttonStyle(.plain)
         }
         .padding(.horizontal, 24)
+        .sheet(isPresented: $showsOnline) {
+            OnlineCheckoutView(plan: .logicPro, gateway: gateway) { showsOnline = false }
+                .presentationDetents([.large])
+                .interactiveDismissDisabled()
+        }
+        .sheet(item: Binding(get: { openSubscription.map(SubscriptionRef.init) },
+                             set: { openSubscription = $0?.id })) { ref in
+            SubscriptionView(id: ref.id, gateway: gateway) { openSubscription = nil }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showsCheckout) {
             if let id = currentCard ?? wallet.cards.first?.id, let card = wallet.card(id) {
                 PayView(card: card, gateway: gateway, isPresented: $showsCheckout)
@@ -420,6 +439,45 @@ struct HomeView: View {
     }
 
     // MARK: Transactions
+
+    private var subscriptions: some View {
+        VStack(spacing: 12) {
+            ForEach(wallet.subscriptions) { sub in
+                Button { openSubscription = sub.id } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: sub.symbol)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(palette.ink)
+                            .frame(width: 48, height: 48)
+                            .background(palette.surface, in: Circle())
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(sub.plan)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(palette.ink)
+                            Text(subtitle(sub))
+                                .font(.system(size: 14))
+                                .foregroundStyle(palette.inkTertiary)
+                        }
+                        Spacer()
+                        Text(sub.price.formatted + "/mo")
+                            .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(sub.status == .cancelled ? palette.inkTertiary : palette.ink)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private func subtitle(_ sub: Subscription) -> String {
+        switch sub.status {
+        case .active:    "Next " + sub.nextDate.formatted(.dateTime.day().month(.abbreviated))
+        case .pastDue:   "Past due · " + (sub.bills.last?.failure ?? "")
+        case .cancelled: "Cancelled"
+        }
+    }
 
     private var transactions: some View {
         VStack(spacing: 18) {
@@ -548,3 +606,6 @@ private struct Lift {
     var scale: CGFloat = 1
     var lean: Double = 0
 }
+
+/// `sheet(item:)` wants an Identifiable; a subscription id is a String.
+private struct SubscriptionRef: Identifiable { let id: Subscription.ID }

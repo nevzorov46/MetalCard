@@ -17,6 +17,9 @@ actor PaymentGateway {
         self.responsesToDrop = responsesToDrop
     }
 
+    /// The next answer is lost after the charge has gone through.
+    func loseNextAnswer() { responsesToDrop = max(responsesToDrop, 1) }
+
     func authorize(_ request: ChargeRequest, last4: String) async throws -> Receipt {
         let key = request.idempotencyKey
 

@@ -14,6 +14,7 @@ final class Wallet {
     /// What is left on each gift card. Kept apart from the balances above: a gift card's
     /// money was paid for already, and it does not count towards the total.
     private(set) var giftBalances: [Card.ID: Money] = [:]
+    private(set) var subscriptions: [Subscription] = []
 
     private let store: WalletStore?
 
@@ -26,6 +27,7 @@ final class Wallet {
             // Older files have neither; they start from the samples.
             cards = saved.cards ?? Card.samples
             giftBalances = saved.giftBalances ?? Self.openingGiftBalances
+            subscriptions = saved.subscriptions ?? []
         } else {
             transactions = Transaction.samples
             balances = Self.openingBalances
@@ -72,6 +74,69 @@ final class Wallet {
         return FX.convert(amount, to: left.currency).minorUnits <= left.minorUnits
     }
 
+    // MARK: Subscriptions
+
+    /// The first month, paid by the customer with Face ID, starts the subscription.
+    @discardableResult
+    func subscribe(_ plan: Plan, receipt: Receipt, card: Card) -> Subscription {
+        record(receipt, card: card)
+        let period = Subscription.period(of: receipt.completedAt)
+        let subscription = Subscription(
+            id: String(UUID().uuidString.prefix(8)).lowercased(),
+            plan: plan.name, descriptor: plan.descriptor, domain: plan.domain, symbol: plan.symbol,
+            price: plan.price, cardID: card.id, started: receipt.completedAt,
+            nextPeriod: Subscription.period(after: period),
+            bills: [.init(period: period, chargeID: receipt.id, date: receipt.completedAt)])
+        subscriptions.insert(subscription, at: 0)
+        persist()
+        return subscription
+    }
+
+    func subscription(_ id: Subscription.ID) -> Subscription? { subscriptions.first { $0.id == id } }
+
+    func cancel(_ id: Subscription.ID) {
+        guard let i = subscriptions.firstIndex(where: { $0.id == id }) else { return }
+        subscriptions[i].status = .cancelled
+        persist()
+    }
+
+    /// A month went through. If the month already has this charge, the gateway replayed
+    /// it: marked as retried, and — because `record` is keyed by charge id — not debited
+    /// a second time.
+    func billSettled(_ id: Subscription.ID, period: String, receipt: Receipt, card: Card) -> BillOutcome {
+        guard let i = subscriptions.firstIndex(where: { $0.id == id }) else { return .failed("No such subscription") }
+        record(receipt, card: card)
+        if let b = subscriptions[i].bills.firstIndex(where: { $0.period == period }),
+           subscriptions[i].bills[b].chargeID == receipt.id {
+            subscriptions[i].bills[b].retried = true
+            persist()
+            return .replayed(receipt)
+        }
+        let bill = Subscription.Bill(period: period, chargeID: receipt.id, date: receipt.completedAt)
+        if let b = subscriptions[i].bills.firstIndex(where: { $0.period == period }) {
+            subscriptions[i].bills[b] = bill            // a failed month, paid on a later run
+        } else {
+            subscriptions[i].bills.append(bill)
+        }
+        subscriptions[i].status = .active
+        if period == subscriptions[i].nextPeriod {
+            subscriptions[i].nextPeriod = Subscription.period(after: period)
+        }
+        persist()
+        return .charged(receipt)
+    }
+
+    func billFailed(_ id: Subscription.ID, period: String, reason: String) -> BillOutcome {
+        guard let i = subscriptions.firstIndex(where: { $0.id == id }) else { return .failed(reason) }
+        if !subscriptions[i].bills.contains(where: { $0.period == period && $0.chargeID != nil }) {
+            subscriptions[i].bills.removeAll { $0.period == period }
+            subscriptions[i].bills.append(.init(period: period, chargeID: nil, date: .now, failure: reason))
+            subscriptions[i].status = .pastDue
+        }
+        persist()
+        return .failed(reason)
+    }
+
     /// A payment has gone through. Debit what paid for it — the gift card's own balance,
     /// or the balance in the charge's currency — and put the transaction at the top.
     /// Called once per receipt: a replayed receipt carries the same id as the first, and a
@@ -91,7 +156,7 @@ final class Wallet {
 
     private func persist() {
         store?.save(WalletSnapshot(frozen: frozen, transactions: transactions, balances: balances,
-                                   cards: cards, giftBalances: giftBalances))
+                                   cards: cards, giftBalances: giftBalances, subscriptions: subscriptions))
     }
 }
 
@@ -167,6 +232,7 @@ struct WalletSnapshot: Codable {
     var balances: [Currency: Int]
     var cards: [Card]?
     var giftBalances: [Card.ID: Money]?
+    var subscriptions: [Subscription]?
 }
 
 /// A JSON file in Application Support. Small enough that rewriting it whole is fine.
