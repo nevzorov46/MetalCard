@@ -1,10 +1,10 @@
 import SwiftUI
 
 /// A card in the wallet. The numbers are made up and fail the Luhn check on purpose.
-struct Card: Identifiable, Hashable {
+struct Card: Identifiable, Hashable, Codable {
     /// Which of the theme's colourways the card wears. The colours themselves live in
     /// `Theme`, so a new theme recolours every card without touching this list.
-    enum Style: Hashable {
+    enum Style: Hashable, Codable {
         case primary, metal, secondary, tertiary
     }
 
@@ -40,6 +40,24 @@ struct Card: Identifiable, Hashable {
     var kindLabel: String {
         if isGift { return "Gift card" }
         return isVirtual ? "Virtual card" : (finish == .metal ? "Metal card" : "Debit card")
+    }
+
+    /// A new gift card. The number is random and, like the samples, fails Luhn on purpose.
+    static func gift(_ art: CardArt, holder: String = "VALERY NEVZOROV") -> Card {
+        var digits = [4] + (0..<14).map { _ in Int.random(in: 0...9) }
+        let sum = digits.reversed().enumerated().reduce(0) { total, pair in
+            var v = pair.element
+            if pair.offset.isMultiple(of: 2) { v *= 2; if v > 9 { v -= 9 } }
+            return total + v
+        }
+        digits.append(((10 - sum % 10) % 10 + 1) % 10)
+        let expiry = Calendar.current.date(byAdding: .year, value: 3, to: .now) ?? .now
+        return Card(id: "gift-" + UUID().uuidString.prefix(8).lowercased(),
+                    name: "\(art.displayName) gift",
+                    number: digits.map(String.init).joined(),
+                    expiry: expiry.formatted(.dateTime.month(.twoDigits).year(.twoDigits)),
+                    cvv: String(format: "%03d", Int.random(in: 0...999)),
+                    holder: holder, style: .primary, art: art)
     }
 
     static let samples: [Card] = [

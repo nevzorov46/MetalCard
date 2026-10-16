@@ -6,11 +6,14 @@ import SwiftUI
 /// list of transactions cannot disagree about what just happened.
 @Observable
 final class Wallet {
-    var cards = Card.samples
+    private(set) var cards = Card.samples
     var frozen: Set<Card.ID> = []
     private(set) var transactions: [Transaction] = []
     /// Minor units per currency. The same four the gateway holds.
     private(set) var balances: [Currency: Int] = [:]
+    /// What is left on each gift card. Kept apart from the balances above: a gift card's
+    /// money was paid for already, and it does not count towards the total.
+    private(set) var giftBalances: [Card.ID: Money] = [:]
 
     private let store: WalletStore?
 
@@ -20,13 +23,22 @@ final class Wallet {
             frozen = saved.frozen
             transactions = saved.transactions
             balances = saved.balances
+            // Older files have neither; they start from the samples.
+            cards = saved.cards ?? Card.samples
+            giftBalances = saved.giftBalances ?? Self.openingGiftBalances
         } else {
             transactions = Transaction.samples
             balances = Self.openingBalances
+            giftBalances = Self.openingGiftBalances
         }
     }
 
     static let openingBalances: [Currency: Int] = [.eur: 1_248_020, .usd: 34_215, .sgd: 189_040, .jpy: 86_400]
+    static let openingGiftBalances: [Card.ID: Money] = [
+        "gift-birthday": Money(minorUnits: 15_000, currency: .sgd),
+        "gift-winter":   Money(minorUnits: 60_000, currency: .sgd),
+        "gift-weekend":  Money(minorUnits: 8_000, currency: .sgd)
+    ]
 
     func card(_ id: Card.ID) -> Card? { cards.first { $0.id == id } }
     func isFrozen(_ card: Card) -> Bool { frozen.contains(card.id) }
@@ -50,19 +62,46 @@ final class Wallet {
         return Money(minorUnits: sum, currency: .home)
     }
 
-    /// A payment has gone through. Debit the balance in the charge's own currency and put
-    /// the transaction at the top. Called once per receipt: a replayed receipt carries the
-    /// same id as the first, and a second record of it would be the double charge the
-    /// gateway went to such trouble to avoid.
+    // MARK: Gift cards
+
+    func giftBalance(of card: Card) -> Money? { giftBalances[card.id] }
+
+    /// A gift card can only spend what is on it. Other cards leave that to the gateway.
+    func canPay(_ amount: Money, with card: Card) -> Bool {
+        guard card.isGift, let left = giftBalances[card.id] else { return true }
+        return FX.convert(amount, to: left.currency).minorUnits <= left.minorUnits
+    }
+
+    /// A gift card that has been paid for joins the wallet with its amount on it.
+    @discardableResult
+    func addGift(_ art: CardArt, amount: Money) -> Card {
+        let card = Card.gift(art)
+        cards.append(card)
+        giftBalances[card.id] = amount
+        persist()
+        return card
+    }
+
+    /// A payment has gone through. Debit what paid for it — the gift card's own balance,
+    /// or the balance in the charge's currency — and put the transaction at the top.
+    /// Called once per receipt: a replayed receipt carries the same id as the first, and a
+    /// second record of it would be the double charge the gateway went to such trouble
+    /// to avoid.
     func record(_ receipt: Receipt, card: Card) {
         guard !transactions.contains(where: { $0.id == receipt.id }) else { return }
-        balances[receipt.amount.currency, default: 0] -= receipt.amount.minorUnits
+        if card.isGift, let left = giftBalances[card.id] {
+            let spent = FX.convert(receipt.amount, to: left.currency)
+            giftBalances[card.id] = Money(minorUnits: left.minorUnits - spent.minorUnits, currency: left.currency)
+        } else {
+            balances[receipt.amount.currency, default: 0] -= receipt.amount.minorUnits
+        }
         transactions.insert(Transaction(receipt: receipt, card: card), at: 0)
         persist()
     }
 
     private func persist() {
-        store?.save(WalletSnapshot(frozen: frozen, transactions: transactions, balances: balances))
+        store?.save(WalletSnapshot(frozen: frozen, transactions: transactions, balances: balances,
+                                   cards: cards, giftBalances: giftBalances))
     }
 }
 
@@ -76,6 +115,8 @@ struct Transaction: Identifiable, Hashable, Codable {
     var last4: String
     var date: Date
     var incoming = false
+    /// Which card paid, when this came from a payment made here.
+    var cardID: Card.ID? = nil
     /// The receipt, when this came from a payment made here. The seeded history has none.
     var receipt: Receipt?
 
@@ -84,6 +125,7 @@ struct Transaction: Identifiable, Hashable, Codable {
         merchant = receipt.merchant
         amount = receipt.amount
         cardName = card.name
+        cardID = card.id
         last4 = receipt.last4
         date = receipt.completedAt
         self.receipt = receipt
@@ -133,6 +175,8 @@ struct WalletSnapshot: Codable {
     var frozen: Set<Card.ID>
     var transactions: [Transaction]
     var balances: [Currency: Int]
+    var cards: [Card]?
+    var giftBalances: [Card.ID: Money]?
 }
 
 /// A JSON file in Application Support. Small enough that rewriting it whole is fine.

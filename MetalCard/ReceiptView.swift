@@ -8,18 +8,35 @@ struct ReceiptView: View {
 
     let receipt: Receipt
     let cardName: String
+    /// The paying card's drawing, for a flight's boarding pass. Night sky if it had none.
+    var art: CardArt? = nil
+    var holder: String = "VALERY NEVZOROV"
     let onDone: () -> Void
 
     @State private var stamped = false
 
     var body: some View {
+        ScrollView {
         VStack(spacing: 0) {
-            stamp.padding(.top, 36)
+            if let trip = receipt.merchant.trip {
+                TicketView(trip: trip, art: art ?? .night, holder: holder, chargeID: receipt.id)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 26)
+                    .scaleEffect(stamped ? 1 : 0.96)
+                    .opacity(stamped ? 1 : 0)
 
-            Text(receipt.amount.formatted)
-                .font(.display(46))
-                .foregroundStyle(palette.ink)
-                .padding(.top, 20)
+                Text(receipt.amount.formatted)
+                    .font(.display(34))
+                    .foregroundStyle(palette.ink)
+                    .padding(.top, 22)
+            } else {
+                stamp.padding(.top, 36)
+
+                Text(receipt.amount.formatted)
+                    .font(.display(46))
+                    .foregroundStyle(palette.ink)
+                    .padding(.top, 20)
+            }
 
             Text(receipt.merchant.name)
                 .font(.system(size: 16, weight: .semibold))
@@ -48,9 +65,11 @@ struct ReceiptView: View {
             .background(palette.surface, in: RoundedRectangle(cornerRadius: 14))
             .padding(.horizontal, 24)
             .padding(.top, 28)
-
-            Spacer(minLength: 20)
-
+            .padding(.bottom, 20)
+        }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .safeAreaInset(edge: .bottom) {
             Button(action: onDone) {
                 Text("Done")
                     .font(.system(size: 17, weight: .bold))
@@ -62,7 +81,9 @@ struct ReceiptView: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 24)
+            .padding(.top, 8)
             .padding(.bottom, 26)
+            .background(palette.canvas)
         }
         .task {
             withAnimation(.bouncy(duration: 0.5, extraBounce: 0.2)) { stamped = true }

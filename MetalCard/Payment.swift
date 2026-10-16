@@ -52,8 +52,24 @@ struct Merchant: Hashable, Sendable, Codable {
     var name: String
     var category: String
     var symbol: String
+    /// Set when what was bought is a flight; the receipt is then a boarding pass.
+    var trip: Trip? = nil
 
     static let sample = Merchant(name: "Tamp & Grind", category: "Coffee · Singapore", symbol: "cup.and.saucer.fill")
+}
+
+struct Trip: Hashable, Sendable, Codable {
+    var airline: String
+    var flight: String
+    var from: String
+    var fromCity: String
+    var to: String
+    var toCity: String
+    var date: String
+    var departs: String
+    var arrives: String
+    var gate: String
+    var seat: String
 }
 
 struct ChargeRequest: Hashable, Sendable {

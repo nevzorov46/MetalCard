@@ -18,6 +18,7 @@ struct HomeView: View {
     @State private var showsThemes = false
     @State private var showsCheckout = false
     @State private var openReceipt: Transaction?
+    @State private var showsGift = false
     /// One gateway for the whole session, so its idempotency record survives between sheets.
     /// Launch with `-remote http://localhost:8080` to pay against `server/` instead.
     @State private var gateway: any ChargeGateway = {
@@ -300,7 +301,8 @@ struct HomeView: View {
                 pill("Pay", "wave.3.right", primary: true)
             }
             .buttonStyle(.plain)
-            pill("Send", "arrow.up.right")
+            Button { showsGift = true } label: { pill("Gift", "gift") }
+                .buttonStyle(.plain)
             pill("Add money", "plus")
         }
         .padding(.horizontal, 24)
@@ -313,9 +315,25 @@ struct HomeView: View {
         }
         .sheet(item: $openReceipt) { tx in
             if let receipt = tx.receipt {
-                ReceiptView(receipt: receipt, cardName: tx.cardName) { openReceipt = nil }
-                    .presentationDetents([.height(520)])
+                let paidWith = tx.cardID.flatMap(wallet.card)
+                ReceiptView(receipt: receipt, cardName: tx.cardName, art: paidWith?.art,
+                            holder: paidWith?.holder ?? "VALERY NEVZOROV") { openReceipt = nil }
+                    .presentationDetents(receipt.merchant.trip == nil ? [.height(520), .large] : [.large])
                     .presentationDragIndicator(.visible)
+            }
+        }
+        .sheet(isPresented: $showsGift) {
+            // Paid for with the card in view, unless that is itself a gift card.
+            let inView = (currentCard ?? wallet.cards.first?.id).flatMap(wallet.card)
+            if let funding = inView.flatMap({ $0.isGift ? nil : $0 }) ?? wallet.cards.first(where: { !$0.isGift }) {
+                BuyGiftView(funding: funding, gateway: gateway) { bought in
+                    showsGift = false
+                    if let bought {
+                        withAnimation(.smooth(duration: 0.6)) { currentCard = bought.id }
+                    }
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
         }
     }

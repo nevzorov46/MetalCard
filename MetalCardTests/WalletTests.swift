@@ -169,3 +169,77 @@ struct AccentTests {
         #expect(gifts.allSatisfy { $0.kindLabel == "Gift card" })
     }
 }
+
+// MARK: - Gift cards
+
+@MainActor
+@Suite("Gift cards")
+struct GiftCardTests {
+
+    private func receipt(_ id: String, _ minor: Int, _ currency: Currency = .sgd) -> Receipt {
+        Receipt(id: id, amount: Money(minorUnits: minor, currency: currency),
+                merchant: .sample, last4: "0876", completedAt: .now)
+    }
+
+    @Test("Paying with a gift card spends the gift, not the wallet")
+    func giftSpendsItsOwnBalance() throws {
+        let wallet = Wallet(store: nil)
+        let winter = try #require(wallet.card("gift-winter"))
+        let sgd = wallet.balance(in: .sgd)
+
+        wallet.record(receipt("ch_flight", 48_600), card: winter)
+
+        #expect(wallet.giftBalance(of: winter) == Money(minorUnits: 11_400, currency: .sgd))
+        #expect(wallet.balance(in: .sgd) == sgd)
+    }
+
+    @Test("A gift card cannot cover more than is on it")
+    func giftCannotOverspend() throws {
+        let wallet = Wallet(store: nil)
+        let weekend = try #require(wallet.card("gift-weekend"))     // SGD 80
+        #expect(!wallet.canPay(Money(minorUnits: 48_600, currency: .sgd), with: weekend))
+        #expect(wallet.canPay(Money(minorUnits: 1_250, currency: .sgd), with: weekend))
+        // In another currency it is converted first: €18.40 is about SGD 26.67.
+        #expect(wallet.canPay(Money(minorUnits: 1_840, currency: .eur), with: weekend))
+    }
+
+    @Test("A bought gift card joins the wallet with its amount, and survives a relaunch")
+    func boughtGiftPersists() throws {
+        let store = WalletStore(url: FileManager.default.temporaryDirectory
+            .appending(path: "wallet-\(UUID().uuidString).json"))
+        let first = Wallet(store: store)
+        let count = first.cards.count
+        let card = first.addGift(.dusk, amount: Money(minorUnits: 20_000, currency: .sgd))
+
+        let second = Wallet(store: store)
+        #expect(second.cards.count == count + 1)
+        let restored = try #require(second.card(card.id))
+        #expect(restored.art == .dusk)
+        #expect(second.giftBalance(of: restored) == Money(minorUnits: 20_000, currency: .sgd))
+    }
+
+    @Test("A new gift card's number fails Luhn, like every sample")
+    func giftNumbersAreNotReal() {
+        for _ in 0..<50 {
+            let n = Card.gift(.night).number
+            let digits = n.compactMap(\.wholeNumberValue)
+            let sum = digits.reversed().enumerated().reduce(0) { t, p in
+                guard p.offset % 2 == 1 else { return t + p.element }
+                let d = p.element * 2
+                return t + (d > 9 ? d - 9 : d)
+            }
+            #expect(digits.count == 16)
+            #expect(sum % 10 != 0, "\(n) passes Luhn")
+        }
+    }
+
+    @Test("A wallet saved before gift cards existed opens with the samples")
+    func olderFilesStillOpen() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "old-\(UUID().uuidString).json")
+        let old = #"{"balances":["SGD",100],"frozen":[],"transactions":[]}"#
+        try Data(old.utf8).write(to: url)
+        let wallet = Wallet(store: WalletStore(url: url))
+        #expect(wallet.cards == Card.samples)
+        #expect(wallet.giftBalances == Wallet.openingGiftBalances)
+    }
+}

@@ -2,8 +2,16 @@ import SwiftUI
 
 /// The illustration a gift card wears instead of a plain colourway. Each one brings its
 /// own ground and lettering, so a gift card looks the same whichever theme is chosen.
-enum CardArt: String, Hashable, CaseIterable {
+enum CardArt: String, Hashable, CaseIterable, Codable {
     case confetti, night, dusk
+
+    var displayName: String {
+        switch self {
+        case .confetti: "Celebration"
+        case .night:    "Night sky"
+        case .dusk:     "Dusk"
+        }
+    }
 
     var base: Color {
         switch self {

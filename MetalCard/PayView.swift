@@ -8,6 +8,13 @@ struct Offer: Identifiable, Hashable {
     let amount: Money
 
     static let all: [Offer] = [
+        Offer(id: "flight",
+              merchant: Merchant(name: "Monsoon Air", category: "Flight · SIN → NRT", symbol: "airplane",
+                                 trip: Trip(airline: "Monsoon Air", flight: "MA 638",
+                                            from: "SIN", fromCity: "Singapore", to: "NRT", toCity: "Tokyo Narita",
+                                            date: "Fri 24 Oct", departs: "23:55", arrives: "08:05 +1",
+                                            gate: "C19", seat: "32A")),
+              amount: Money(minorUnits: 48_600, currency: .sgd)),
         Offer(id: "coffee", merchant: Merchant(name: "Tamp & Grind", category: "Coffee · Singapore", symbol: "cup.and.saucer.fill"),
               amount: Money(minorUnits: 480, currency: .sgd)),
         Offer(id: "lunch", merchant: Merchant(name: "Hawker Row", category: "Lunch · Singapore", symbol: "fork.knife"),
@@ -36,6 +43,8 @@ struct PayView: View {
     @State private var checkout: Checkout?
     @State private var paying: Offer?
     @State private var receipt: Receipt?
+    /// The merchant a gift card could not cover; nothing was sent for it.
+    @State private var shortfall: Offer?
 
     private var frozen: Bool { wallet.isFrozen(card) }
     private var busy: Bool { checkout?.phase.isBusy ?? false }
@@ -56,13 +65,16 @@ struct PayView: View {
             }
             .background(palette.canvas)
             .navigationDestination(item: $receipt) { receipt in
-                ReceiptView(receipt: receipt, cardName: card.name) { isPresented = false }
+                ReceiptView(receipt: receipt, cardName: card.name, art: card.art, holder: card.holder) {
+                    isPresented = false
+                }
                     .background(palette.canvas)
                     .toolbar(.hidden, for: .navigationBar)
             }
         }
         .sensoryFeedback(.success, trigger: receipt)
         .sensoryFeedback(.error, trigger: failed)
+        .sensoryFeedback(.error, trigger: shortfall)
         .onChange(of: checkout?.phase) { _, phase in
             // Approved: into the wallet at once, then the receipt.
             if case .approved(let r) = phase {
@@ -78,6 +90,13 @@ struct PayView: View {
     // MARK: Paying
 
     private func pay(_ offer: Offer) {
+        // Checked on the device: a gift card's balance is ours to know, and asking the
+        // gateway to charge more than is on it would only earn a decline.
+        guard wallet.canPay(offer.amount, with: card) else {
+            shortfall = offer
+            return
+        }
+        shortfall = nil
         // The same merchant after a failure is the same purchase: same checkout, same key.
         if paying != offer || checkout == nil {
             paying = offer
@@ -102,6 +121,12 @@ struct PayView: View {
                 Button("Card frozen · Unfreeze") { wallet.toggleFreeze(card) }
                     .font(.system(size: 14, weight: .semibold))
                     .tint(palette.ink)
+            } else if let left = wallet.giftBalance(of: card) {
+                Text("\(left.formatted) left on this gift card")
+                    .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(palette.ink)
+                    .contentTransition(.numericText())
+                    .animation(.smooth, value: left)
             } else {
                 Text("Tap to pay")
                     .font(.system(size: 14, weight: .medium))
@@ -122,9 +147,10 @@ struct PayView: View {
                 Text(offer.merchant.name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(palette.ink)
-                Text(active ? status : offer.merchant.category)
+                Text(shortfall == offer ? "Only \(wallet.giftBalance(of: card)?.formatted ?? "") left"
+                     : active ? status : offer.merchant.category)
                     .font(.system(size: 13))
-                    .foregroundStyle(active && failed ? palette.ink : palette.inkTertiary)
+                    .foregroundStyle((active && failed) || shortfall == offer ? palette.ink : palette.inkTertiary)
                     .contentTransition(.opacity)
                     .animation(.smooth(duration: 0.25), value: status)
             }
