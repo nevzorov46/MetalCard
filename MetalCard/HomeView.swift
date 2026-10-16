@@ -71,6 +71,11 @@ struct HomeView: View {
                     .zIndex(2)
             }
         }
+        // On an iPad the wallet is a column, not the whole screen: a card the width of a
+        // 13-inch display stops reading as a card. Everything — carousel, hero, detail —
+        // lives inside the column, so the zoom between them still lines up.
+        .frame(maxWidth: 720)
+        .frame(maxWidth: .infinity)
         .background(palette.canvas)
         .sensoryFeedback(.impact(weight: .light), trigger: selected)
         .onAppear { currentCard = currentCard ?? wallet.cards.first?.id }
