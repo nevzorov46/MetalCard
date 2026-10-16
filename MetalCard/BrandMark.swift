@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Placeholder brand: a leaf glyph and a lowercase wordmark. Change `name` to rebrand.
+/// The mark is the leaf alone. Set `name` to put a wordmark beside it.
 enum Brand {
-    static let name = "fern"
+    static let name = ""
 }
 
 /// A leaf lying on the diagonal. With `vein`, the vein is cut out (fill it with `eoFill`).
@@ -42,10 +42,12 @@ struct BrandMark: View {
             LeafShape()
                 .fill(color, style: FillStyle(eoFill: true))
                 .frame(width: size * 0.95, height: size * 0.95)
-            Text(Brand.name)
-                .font(.system(size: size, weight: .black))
-                .tracking(-size * 0.03)
-                .foregroundStyle(color)
+            if !Brand.name.isEmpty {
+                Text(Brand.name)
+                    .font(.system(size: size, weight: .black))
+                    .tracking(-size * 0.03)
+                    .foregroundStyle(color)
+            }
         }
     }
 }

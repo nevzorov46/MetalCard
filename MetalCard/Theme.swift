@@ -45,7 +45,7 @@ struct Theme: Identifiable, Equatable {
 // MARK: - Presets
 
 extension Theme {
-    static let all: [Theme] = [.lavender, .tangerine, .rose, .cobalt, .saffron, .graphite]
+    static let all: [Theme] = [.lavender, .tangerine, .rose, .cobalt, .saffron, .graphite, .slate, .onyx]
 
     static func named(_ id: String) -> Theme { all.first { $0.id == id } ?? .lavender }
 
@@ -85,6 +85,30 @@ extension Theme {
         metal: .init(base: Color(hex: 0x2A2B2F), ink: Color(hex: 0xE9B98F)),
         secondary: .init(base: Color(hex: 0xCFCBC3), ink: Color(hex: 0x262422)),
         tertiary: .init(base: Color(hex: 0x0B0B0C), ink: Color(hex: 0xD9905E)))
+
+    /// Dark, with a steel-blue accent: the palette the walkthrough videos use.
+    static let slate = Theme(
+        id: "slate", name: "Slate", isDark: true,
+        ink: Color(hex: 0xEDEAE4), inkSecondary: Color(hex: 0xB3B1AB), inkTertiary: Color(hex: 0x86847D),
+        canvas: Color(hex: 0x0F1114), surface: Color(hex: 0x1B1E23),
+        accent: Color(hex: 0x7FA8C4), onAccent: Color(hex: 0x0B1A24), accentSoft: Color(hex: 0x1C2A34),
+        positive: Color(hex: 0x6FCF97), iceSurface: Color(hex: 0x16283A), iceInk: Color(hex: 0xA8D8FF),
+        primary: .init(base: Color(hex: 0x7FA8C4), ink: Color(hex: 0x0B1A24)),
+        metal: .init(base: Color(hex: 0x23272C), ink: Color(hex: 0xC9DBE8)),
+        secondary: .init(base: Color(hex: 0x2A2F36), ink: Color(hex: 0xE3E8EE)),
+        tertiary: .init(base: Color(hex: 0x0B0C0E), ink: Color(hex: 0x7FA8C4)))
+
+    /// Dark, with a lavender accent.
+    static let onyx = Theme(
+        id: "onyx", name: "Onyx", isDark: true,
+        ink: Color(hex: 0xEDEAE4), inkSecondary: Color(hex: 0xB3B1AB), inkTertiary: Color(hex: 0x86847D),
+        canvas: Color(hex: 0x0F1012), surface: Color(hex: 0x1B1B20),
+        accent: Color(hex: 0xB9AEF0), onAccent: Color(hex: 0x1A1240), accentSoft: Color(hex: 0x262040),
+        positive: Color(hex: 0x6FCF97), iceSurface: Color(hex: 0x16283A), iceInk: Color(hex: 0xA8D8FF),
+        primary: .init(base: Color(hex: 0xB9AEF0), ink: Color(hex: 0x1A1240)),
+        metal: .init(base: Color(hex: 0x1E1830), ink: Color(hex: 0xCFC4FF)),
+        secondary: .init(base: Color(hex: 0x2B2733), ink: Color(hex: 0xE8E3F5)),
+        tertiary: .init(base: Color(hex: 0x0B0B0C), ink: Color(hex: 0xB9AEF0)))
 
     /// Light themes share their neutrals; the surface is tinted towards the accent.
     private static func light(id: String, name: String, surface: UInt32,
