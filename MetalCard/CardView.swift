@@ -129,7 +129,6 @@ struct CardView: View, Animatable {
     private func frontPrint(width w: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center) {
-                BrandMark(size: w * 0.068, color: ink)
                 Spacer()
                 Image(systemName: "wave.3.right")
                     .font(.system(size: w * 0.052, weight: .semibold))
@@ -206,7 +205,7 @@ struct CardView: View, Animatable {
             .padding(.top, h * 0.07)
             .padding(.horizontal, pad)
 
-            Text("This card remains the property of \(Brand.name) and must be returned on request. Use is subject to the cardholder agreement.")
+            Text("This card remains the property of the issuer and must be returned on request. Use is subject to the cardholder agreement.")
                 .font(.system(size: w * 0.017))
                 .opacity(0.55)
                 .frame(width: w * 0.56, alignment: .leading)
@@ -231,7 +230,6 @@ struct CardView: View, Animatable {
     private func virtualBack(width w: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center) {
-                BrandMark(size: w * 0.068, color: ink)
                 Spacer()
                 Text("Virtual card")
                     .font(.system(size: w * 0.034, weight: .semibold))

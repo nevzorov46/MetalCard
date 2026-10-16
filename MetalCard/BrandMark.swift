@@ -1,10 +1,5 @@
 import SwiftUI
 
-/// The mark is the leaf alone. Set `name` to put a wordmark beside it.
-enum Brand {
-    static let name = ""
-}
-
 /// A leaf lying on the diagonal. With `vein`, the vein is cut out (fill it with `eoFill`).
 struct LeafShape: Shape {
     var vein = true
@@ -30,24 +25,5 @@ struct LeafShape: Shape {
         ])
         path.closeSubpath()
         return path
-    }
-}
-
-struct BrandMark: View {
-    var size: CGFloat
-    var color: Color
-
-    var body: some View {
-        HStack(spacing: size * 0.22) {
-            LeafShape()
-                .fill(color, style: FillStyle(eoFill: true))
-                .frame(width: size * 0.95, height: size * 0.95)
-            if !Brand.name.isEmpty {
-                Text(Brand.name)
-                    .font(.system(size: size, weight: .black))
-                    .tracking(-size * 0.03)
-                    .foregroundStyle(color)
-            }
-        }
     }
 }
