@@ -130,11 +130,13 @@ static float3 environment(float3 d, constant CardUniforms &u, float rough) {
     return room + strip + bar;
 }
 
-// What a diffuse surface receives: the room without the strips.
+// What a diffuse surface receives: the room without the strips, over a constant fill.
+// The fill is what keeps a matte card its own colour in a dark theme — a room that is
+// nearly black would otherwise starve the albedo and print a black card.
 static float3 irradiance(float3 d, constant CardUniforms &u) {
-    float3 c = mix(u.ground.rgb, u.sky.rgb, smoothstep(-0.45, 0.65, d.y)) * 0.6;
-    c += u.bounce.rgb * smoothstep(0.30, -0.50, d.y) * 0.18;
-    return c;
+    float3 c = mix(u.ground.rgb, u.sky.rgb, smoothstep(-0.45, 0.65, d.y)) * 0.45;
+    c += u.bounce.rgb * smoothstep(0.30, -0.50, d.y) * 0.14;
+    return c + 0.62;
 }
 
 // MARK: - Anisotropic GGX
