@@ -93,7 +93,7 @@ extension Theme {
         canvas: Color(hex: 0x0F1114), surface: Color(hex: 0x1B1E23),
         accent: Color(hex: 0x7FA8C4), onAccent: Color(hex: 0x0B1A24), accentSoft: Color(hex: 0x1C2A34),
         positive: Color(hex: 0x6FCF97), iceSurface: Color(hex: 0x16283A), iceInk: Color(hex: 0xA8D8FF),
-        primary: .init(base: Color(hex: 0x7FA8C4), ink: Color(hex: 0x0B1A24)),
+        primary: .init(base: Color(hex: 0x3E5A6E), ink: Color(hex: 0xDCE8F1)),
         metal: .init(base: Color(hex: 0x23272C), ink: Color(hex: 0xC9DBE8)),
         secondary: .init(base: Color(hex: 0x2A2F36), ink: Color(hex: 0xE3E8EE)),
         tertiary: .init(base: Color(hex: 0x0B0C0E), ink: Color(hex: 0x7FA8C4)))
@@ -105,7 +105,7 @@ extension Theme {
         canvas: Color(hex: 0x0F1012), surface: Color(hex: 0x1B1B20),
         accent: Color(hex: 0xB9AEF0), onAccent: Color(hex: 0x1A1240), accentSoft: Color(hex: 0x262040),
         positive: Color(hex: 0x6FCF97), iceSurface: Color(hex: 0x16283A), iceInk: Color(hex: 0xA8D8FF),
-        primary: .init(base: Color(hex: 0xB9AEF0), ink: Color(hex: 0x1A1240)),
+        primary: .init(base: Color(hex: 0x4A3F7A), ink: Color(hex: 0xE6E0FA)),
         metal: .init(base: Color(hex: 0x1E1830), ink: Color(hex: 0xCFC4FF)),
         secondary: .init(base: Color(hex: 0x2B2733), ink: Color(hex: 0xE8E3F5)),
         tertiary: .init(base: Color(hex: 0x0B0B0C), ink: Color(hex: 0xB9AEF0)))
