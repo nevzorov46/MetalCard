@@ -5,6 +5,7 @@ import SwiftUI
 struct CheckoutView: View {
     @Environment(Wallet.self) private var wallet
     @Environment(\.theme) private var palette
+    @Environment(MotionTilt.self) private var motion
     let card: Card
     let onClose: () -> Void
     @State private var checkout: Checkout
@@ -25,8 +26,8 @@ struct CheckoutView: View {
                 ReceiptView(receipt: receipt, cardName: card.name, onDone: onClose)
                     .transition(.opacity)
             } else {
-                merchant.padding(.top, 34)
-                amount.padding(.top, 26).padding(.bottom, 30)
+                merchant.padding(.top, 28)
+                amount.padding(.top, 18).padding(.bottom, 22)
                 Divider().overlay(palette.inkTertiary.opacity(0.2)).padding(.horizontal, 24)
                 payingWith.padding(.vertical, 18)
                 Spacer(minLength: 0)
@@ -51,7 +52,7 @@ struct CheckoutView: View {
         VStack(spacing: 10) {
             Image(systemName: checkout.merchant.symbol)
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(palette.accent)
+                .foregroundStyle(palette.ink)
                 .frame(width: 56, height: 56)
                 .background(palette.accentSoft, in: Circle())
             Text(checkout.merchant.name)
@@ -70,33 +71,20 @@ struct CheckoutView: View {
             .contentTransition(.numericText())
     }
 
+    /// The card itself, the same view as in the wallet: metal, a gift card's drawing, ice
+    /// when it is frozen, and it follows the phone's tilt.
     private var payingWith: some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 5)
-                .fill(frozen ? palette.iceSurface : palette.accent)
-                .frame(width: 38, height: 25)
-                .overlay {
-                    if frozen {
-                        Image(systemName: "snowflake")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(palette.iceInk)
-                    }
-                }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(card.name)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(palette.ink)
-                Text("•••• \(card.last4)")
-                    .font(.system(size: 13, weight: .medium).monospacedDigit())
-                    .foregroundStyle(palette.inkTertiary)
-            }
-            Spacer()
+        VStack(spacing: 12) {
+            CardView(card: card, tilt: motion.tilt, frost: frozen ? 1 : 0)
+                .frame(width: 236)
+                .animation(frozen ? .freeze : .thaw, value: frozen)
             if frozen {
-                Button("Unfreeze") { wallet.toggleFreeze(card) }
+                Button("Unfreeze to pay") { wallet.toggleFreeze(card) }
                     .font(.system(size: 14, weight: .semibold))
-                    .tint(palette.accent)
+                    .tint(palette.ink)
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
     }
 

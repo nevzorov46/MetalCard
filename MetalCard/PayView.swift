@@ -67,7 +67,7 @@ struct PayView: View {
         HStack(spacing: 14) {
             Image(systemName: offer.merchant.symbol)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(palette.accent)
+                .foregroundStyle(palette.ink)
                 .frame(width: 46, height: 46)
                 .background(palette.accentSoft, in: Circle())
             VStack(alignment: .leading, spacing: 3) {

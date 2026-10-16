@@ -307,7 +307,7 @@ struct HomeView: View {
         .sheet(isPresented: $showsCheckout) {
             if let id = currentCard ?? wallet.cards.first?.id, let card = wallet.card(id) {
                 PayView(card: card, gateway: gateway, isPresented: $showsCheckout)
-                    .presentationDetents([.height(560)])
+                    .presentationDetents([.height(680), .large])
                     .presentationDragIndicator(.visible)
             }
         }
