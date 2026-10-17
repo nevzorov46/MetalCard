@@ -45,6 +45,18 @@ final class Wallet {
     func card(_ id: Card.ID) -> Card? { cards.first { $0.id == id } }
     func isFrozen(_ card: Card) -> Bool { frozen.contains(card.id) }
 
+    /// Reorder: the owner carries a card one slot along the carousel. Returns false when
+    /// there is nothing on that side, so the drag knows it has reached the end.
+    @discardableResult
+    func move(_ id: Card.ID, by step: Int) -> Bool {
+        guard let from = cards.firstIndex(where: { $0.id == id }) else { return false }
+        let to = from + step
+        guard cards.indices.contains(to) else { return false }
+        cards.swapAt(from, to)
+        persist()
+        return true
+    }
+
     func toggleFreeze(_ card: Card) {
         if frozen.contains(card.id) { frozen.remove(card.id) } else { frozen.insert(card.id) }
         persist()

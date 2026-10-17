@@ -241,3 +241,43 @@ struct SendingGiftTests {
         #expect(Card.samples.filter(\.isGift).allSatisfy { $0.from != nil })
     }
 }
+
+@MainActor
+@Suite("The order of the cards")
+struct CardOrderTests {
+
+    @Test("A card changes places with its neighbour, and the rest stay as they were")
+    func movingSwapsWithTheNeighbour() {
+        let wallet = Wallet(store: nil)
+        let order = wallet.cards.map(\.id)
+
+        #expect(wallet.move(order[0], by: 1))
+        #expect(wallet.cards.map(\.id) == [order[1], order[0]] + order.dropFirst(2))
+
+        #expect(wallet.move(order[0], by: -1))
+        #expect(wallet.cards.map(\.id) == order)
+    }
+
+    @Test("The ends hold: a card at either end does not fall off it")
+    func movingPastTheEndIsRefused() {
+        let wallet = Wallet(store: nil)
+        let order = wallet.cards.map(\.id)
+
+        #expect(wallet.move(order[0], by: -1) == false)
+        #expect(wallet.move(order[order.count - 1], by: 1) == false)
+        #expect(wallet.move("no-such-card", by: 1) == false)
+        #expect(wallet.cards.map(\.id) == order)
+    }
+
+    @Test("A new order is written down, so the wallet opens the way it was left")
+    func theOrderIsKept() throws {
+        let store = WalletStore(url: URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("order-\(UUID().uuidString).json"))
+        let wallet = Wallet(store: store)
+        let order = wallet.cards.map(\.id)
+        wallet.move(order[2], by: -1)
+
+        let reopened = Wallet(store: store)
+        #expect(reopened.cards.map(\.id) == [order[0], order[2], order[1]] + order.dropFirst(3))
+    }
+}

@@ -12,6 +12,17 @@ struct HomeView: View {
     @Namespace private var hero
 
     @State private var currentCard: Card.ID?
+    /// Reordering. `lifted` is the card under a held finger; `carry` is how far it sits from
+    /// its slot right now, and `carried` is what has already been paid off in whole slots.
+    @State private var lifted: Card.ID?
+    @State private var carry: CGFloat = 0
+    @State private var carried: CGFloat = 0
+    @State private var swaps = 0
+    /// The page the carousel is parked on while a card is held. The scroll stands still
+    /// through the drag, so this stays put while the card's own index moves past it.
+    @State private var liftedPage = 0
+    /// Centre to centre between two cards, measured from the carousel.
+    @State private var slotStep: CGFloat = 0
     @State private var selected: Card.ID?        // the detail screen is showing this card
     @State private var flying: Card.ID?          // the hero layer is showing this card
     @State private var showsDetails = false
@@ -400,15 +411,11 @@ struct HomeView: View {
                     .matchedGeometryEffect(id: selected == card.id ? "idle-\(card.id)" : Self.slot(card.id),
                                            in: hero)
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        if card.id == currentCard {
-                            open(card)
-                        } else {
-                            withAnimation(.snappy) { currentCard = card.id }
-                        }
-                    }
                     // `length` already excludes the carousel's content margins.
                     .containerRelativeFrame(.horizontal)
+                    // One slot, measured rather than derived: plus the spacing it is the
+                    // distance a card travels when it changes places with its neighbour.
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { slotStep = $0 + 12 }
                     .scrollTransition(.interactive, axis: .horizontal) { content, phase in
                         // Shrink and turn each neighbour around the edge that faces the
                         // centre card, so it stays peeking in instead of sliding off-screen.
@@ -418,22 +425,91 @@ struct HomeView: View {
                             .rotation3DEffect(.degrees(phase.value * -12), axis: (x: 0, y: 1, z: 0),
                                               anchor: anchor, perspective: 0.5)
                     }
+                    // Held: off the deck and above its neighbours, following the finger.
+                    .scaleEffect(lifted == card.id ? 1.06 : 1)
+                    .shadow(color: .black.opacity(lifted == card.id ? 0.38 : 0), radius: 28, y: 16)
+                    .offset(x: lifted == card.id ? carry : 0)
+                    .zIndex(lifted == card.id ? 1 : 0)
+                    .overlay {
+                        CardTouch(onTap: {
+                            if card.id == currentCard {
+                                open(card)
+                            } else {
+                                withAnimation(.snappy) { currentCard = card.id }
+                            }
+                        }, onPress: { lift(card) }, onMove: { carryCard($0) }, onEnd: drop)
+                    }
                 }
             }
             .scrollTargetLayout()
+            // The neighbours slide as the order changes; the held card does not, it is on
+            // the finger. Only the order is animated here, never `carry`.
+            .animation(.snappy(duration: 0.26), value: wallet.cards.map(\.id))
         }
+        // While a card is held the scroll stands still, so the slot a card sits in and the
+        // distance the finger has travelled stay in the same units.
+        .scrollDisabled(lifted != nil)
         .scrollTargetBehavior(.viewAligned)
         .scrollPosition(id: $currentCard)
         // Wider than the page margin, so the neighbours peek in on both sides.
         .contentMargins(.horizontal, 34, for: .scrollContent)
         .scrollClipDisabled()
         .scrollIndicators(.hidden)
+        .sensoryFeedback(.impact(weight: .medium), trigger: lifted) { _, new in new != nil }
+        .sensoryFeedback(.impact(weight: .light), trigger: swaps)
+    }
+
+    // MARK: Reordering
+
+    /// Only the centre card is picked up. The others are tapped into the centre first —
+    /// at the edge of the screen there is not enough card to aim at.
+    private func lift(_ card: Card) {
+        guard lifted == nil, card.id == currentCard,
+              let page = wallet.cards.firstIndex(where: { $0.id == card.id }) else { return }
+        carry = 0
+        carried = 0
+        liftedPage = page
+        withAnimation(.snappy(duration: 0.22)) { lifted = card.id }
+    }
+
+    /// Follow the finger. Every time half a slot is crossed the card changes places with
+    /// its neighbour, and that slot is taken off the offset — so the card stays under the
+    /// finger while the deck moves underneath it.
+    private func carryCard(_ width: CGFloat) {
+        guard let id = lifted, slotStep > 0 else { return }
+        var offset = width - carried
+        while offset > slotStep / 2, wallet.move(id, by: 1) {
+            carried += slotStep
+            offset -= slotStep
+            swaps += 1
+        }
+        while offset < -slotStep / 2, wallet.move(id, by: -1) {
+            carried -= slotStep
+            offset += slotStep
+            swaps += 1
+        }
+        carry = offset
+        // The carousel has not moved, so the binding has to name whichever card is parked
+        // in front of it — otherwise it cannot tell, at the drop, that it must scroll.
+        if wallet.cards.indices.contains(liftedPage) { currentCard = wallet.cards[liftedPage].id }
+    }
+
+    /// Let go. The offset falls to zero and the carousel scrolls to the card's new slot —
+    /// two halves of one move, so the card travels from under the finger to its place once.
+    private func drop() {
+        guard let id = lifted else { return }
+        withAnimation(.snappy(duration: 0.3)) {
+            carry = 0
+            lifted = nil
+            currentCard = id
+        }
+        carried = 0
     }
 
     private var pageDots: some View {
         HStack(spacing: 6) {
             ForEach(wallet.cards) { card in
-                let active = card.id == currentCard
+                let active = card.id == (lifted ?? currentCard)
                 Capsule()
                     .fill(active ? palette.ink : palette.ink.opacity(0.16))
                     .frame(width: active ? 20 : 6, height: 6)
@@ -614,3 +690,57 @@ private struct Lift {
 
 /// `sheet(item:)` wants an Identifiable; a subscription id is a String.
 private struct SubscriptionRef: Identifiable { let id: Subscription.ID }
+
+/// A transparent patch of UIKit over a card: a tap, and a press that keeps reporting where
+/// the finger goes. SwiftUI's drag gesture claims the touch the moment it is attached, which
+/// stops the carousel scrolling at all; UIKit's recognisers leave the touch with the scroll
+/// view until the press has actually been held, and only then start reporting.
+struct CardTouch: UIViewRepresentable {
+    var onTap: () -> Void
+    var onPress: () -> Void
+    /// How far the finger is from where it was pressed, in window points — so the card's own
+    /// offset while it is carried cannot shrink the number.
+    var onMove: (CGFloat) -> Void
+    var onEnd: () -> Void
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped))
+        let press = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pressed))
+        press.minimumPressDuration = 0.4
+        press.allowableMovement = 12
+        for recogniser in [tap, press] as [UIGestureRecognizer] {
+            recogniser.cancelsTouchesInView = false
+            recogniser.delegate = context.coordinator
+            view.addGestureRecognizer(recogniser)
+        }
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) { context.coordinator.owner = self }
+
+    func makeCoordinator() -> Coordinator { Coordinator(owner: self) }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var owner: CardTouch
+        private var start = CGPoint.zero
+
+        init(owner: CardTouch) { self.owner = owner }
+
+        @objc func tapped() { owner.onTap() }
+
+        @objc func pressed(_ press: UILongPressGestureRecognizer) {
+            let point = press.location(in: nil)
+            switch press.state {
+            case .began:   start = point; owner.onPress()
+            case .changed: owner.onMove(point.x - start.x)
+            default:       owner.onEnd()
+            }
+        }
+
+        /// Share the touch: the carousel keeps scrolling, the press keeps watching.
+        func gestureRecognizer(_ recogniser: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+    }
+}
