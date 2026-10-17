@@ -128,6 +128,8 @@ func serif(_ s: CGFloat) -> NSFont {
 func clamp(_ v: Double) -> CGFloat { CGFloat(min(1, max(0, v))) }
 func fade(_ t: Double, _ from: Double, _ over: Double) -> CGFloat { clamp((t - from) / over) }
 func ease(_ t: CGFloat) -> CGFloat { t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2 }
+/// Leaves at speed and settles: what a thing thrown across the frame should do.
+func dart(_ t: CGFloat) -> CGFloat { 1 - pow(1 - t, 3) }
 /// Smootherstep: zero velocity and zero acceleration at both ends, for the camera.
 func glide(_ t: CGFloat) -> CGFloat { t * t * t * (t * (t * 6 - 15) + 10) }
 
@@ -167,73 +169,73 @@ let historyRow  = screen(0.50, 0.735)
 
 /// Output time → source time. Flat stretches are holds: the screen waits while the key travels.
 let timeline: [(t: Double, s: Double)] = [
-    (0.0, 0.30), (1.6, 0.30),        // the wallet, under the title
-    (4.6, 3.60), (5.6, 4.60),        // to the merchant's page, and the tap
-    (6.6, 4.62),                     // hold on the tap
-    (7.6, 7.40),                     // Face ID, fast
-    (9.2, 8.30),                     // the request on its way, at the gateway's own pace
-    (10.4, 8.30),                    // charged
-    (11.4, 8.33),                    // the answer back
-    (12.8, 8.90), (13.6, 9.60),      // subscribed
-    (16.6, 18.60),                   // to the subscription, fast
-    (17.4, 18.95), (18.2, 18.95),    // Bill November, and hold
-    (19.8, 19.85),                   // on its way
-    (20.4, 19.85),                   // charged
-    (21.4, 19.87),                   // the answer, lost
-    (23.4, 20.65),                   // 800 ms with nothing
-    (24.4, 20.66),                   // the same key again
-    (25.4, 20.67),                   // replayed
-    (26.4, 20.70),                   // the answer arrives
-    (27.6, 21.20),
-    (28.4, 23.40), (29.2, 23.40),    // Retry November, and hold
-    (30.2, 23.43),                   // on its way
-    (31.4, 23.44),                   // replayed
-    (32.4, 23.47),                   // the answer
-    (34.0, 24.40), (35.2, 25.20),
-    (38.4, 25.20)                    // hold
+    (0.0, 0.30), (1.2, 0.30),        // the wallet, under the title
+    (3.6, 3.60), (4.5, 4.60),        // to the merchant's page, and the tap
+    (5.1, 4.62),                     // hold on the tap
+    (6.0, 7.40),                     // Face ID, fast
+    (7.2, 8.30),                     // the request on its way
+    (8.0, 8.30),                     // charged
+    (8.8, 8.33),                     // the answer back
+    (9.8, 8.90), (10.4, 9.60),       // subscribed
+    (12.6, 18.60),                   // to the subscription, fast
+    (13.3, 18.95), (13.9, 18.95),    // Bill November, and hold
+    (15.1, 19.85),                   // on its way
+    (15.7, 19.85),                   // charged
+    (16.5, 19.87),                   // the answer, lost
+    (18.0, 20.65),                   // 800 ms with nothing
+    (18.9, 20.66),                   // the same key again
+    (19.7, 20.67),                   // replayed
+    (20.5, 20.70),                   // the answer arrives
+    (21.5, 21.20),
+    (22.3, 23.40), (22.9, 23.40),    // Retry November, and hold
+    (23.7, 23.43),                   // on its way
+    (24.6, 23.44),                   // replayed
+    (25.4, 23.47),                   // the answer
+    (26.6, 24.40), (27.6, 25.20),
+    (30.2, 25.20)                    // hold
 ]
 
 /// The gateway's lines, by the film's clock. Their clock column is the recording's.
 struct Line { let at: Double; let source: Double; let level: String; let head: String; let detail: String; let colour: NSColor }
 let lines: [Line] = [
-    Line(at: 9.2,  source: 8.30,  level: "INFO", head: "charged", detail: "ch_ba2c3ad6-0  US$4.99  charges=1", colour: ink),
-    Line(at: 19.8, source: 19.85, level: "INFO", head: "charged", detail: "key=sub-5c5f372d:2026-11", colour: ink),
-    Line(at: 21.4, source: 19.87, level: "WARN", head: "response dropped", detail: "ch_cebaef2c-7  the money moved", colour: rose),
-    Line(at: 24.4, source: 20.66, level: "INFO", head: "replayed — not charged again", detail: "ch_cebaef2c-7  charges=1", colour: green),
-    Line(at: 30.2, source: 23.43, level: "INFO", head: "replayed — not charged again", detail: "ch_cebaef2c-7  charges=1", colour: green)
+    Line(at: 7.2,  source: 8.30,  level: "INFO", head: "charged", detail: "ch_ba2c3ad6-0  US$4.99  charges=1", colour: ink),
+    Line(at: 15.1, source: 19.85, level: "INFO", head: "charged", detail: "key=sub-5c5f372d:2026-11", colour: ink),
+    Line(at: 16.5, source: 19.87, level: "WARN", head: "response dropped", detail: "ch_cebaef2c-7  the money moved", colour: rose),
+    Line(at: 18.9, source: 20.66, level: "INFO", head: "replayed — not charged again", detail: "ch_cebaef2c-7  charges=1", colour: green),
+    Line(at: 23.7, source: 23.43, level: "INFO", head: "replayed — not charged again", detail: "ch_cebaef2c-7  charges=1", colour: green)
 ]
-let countAt = 30.8
+let countAt = 24.2
 
 /// A key on its way to the gateway: it leaves the button that was pressed.
 struct Request { let from: Double; let to: Double; let start: CGPoint; let row: Int; let label: String }
 let monthKey = "sub-5c5f372d:2026-11"
 let requests: [Request] = [
-    Request(from: 7.6,  to: 9.2,  start: payButton,   row: 0, label: "POST · new key"),
-    Request(from: 18.2, to: 19.8, start: billButton,  row: 1, label: monthKey),
-    Request(from: 23.4, to: 24.4, start: billButton,  row: 3, label: monthKey),
-    Request(from: 29.2, to: 30.2, start: retryButton, row: 4, label: monthKey)
+    Request(from: 6.0,  to: 7.2,  start: payButton,   row: 0, label: "POST · new key"),
+    Request(from: 13.9, to: 15.1, start: billButton,  row: 1, label: monthKey),
+    Request(from: 18.0, to: 18.9, start: billButton,  row: 3, label: monthKey),
+    Request(from: 22.9, to: 23.7, start: retryButton, row: 4, label: monthKey)
 ]
 
 /// An answer on its way back: it lands on the part of the screen it changes, or dies.
 struct Answer { let from: Double; let to: Double; let row: Int; let end: CGPoint; let lost: Bool }
 let answers: [Answer] = [
-    Answer(from: 10.4, to: 11.4, row: 0, end: chargeRow,   lost: false),
-    Answer(from: 20.4, to: 21.4, row: 1, end: outcomeText, lost: true),
-    Answer(from: 25.4, to: 26.4, row: 3, end: outcomeText, lost: false),
-    Answer(from: 31.4, to: 32.4, row: 4, end: historyRow,  lost: false)
+    Answer(from: 8.0,  to: 8.8,  row: 0, end: chargeRow,   lost: false),
+    Answer(from: 15.7, to: 16.5, row: 1, end: outcomeText, lost: true),
+    Answer(from: 19.7, to: 20.5, row: 3, end: outcomeText, lost: false),
+    Answer(from: 24.6, to: 25.4, row: 4, end: historyRow,  lost: false)
 ]
 let lostReach: CGFloat = 0.32
-let silence = (from: 21.4, to: 23.4, ms: 800.0)
+let silence = (from: 16.5, to: 18.0, ms: 800.0)
 
 /// A press on the screen.
-let taps: [(at: Double, point: CGPoint)] = [(5.6, payButton), (17.4, billButton), (28.4, retryButton)]
+let taps: [(at: Double, point: CGPoint)] = [(4.5, payButton), (13.3, billButton), (22.3, retryButton)]
 
 /// What the answer changed, outlined on the recording.
 struct Mark { let from: Double; let to: Double; let centre: CGPoint; let size: CGSize }
 let marks: [Mark] = [
-    Mark(from: 11.3, to: 13.8, centre: chargeRow,   size: CGSize(width: 410, height: 34)),
-    Mark(from: 26.6, to: 28.0, centre: outcomeText, size: CGSize(width: 410, height: 46)),
-    Mark(from: 32.6, to: 34.8, centre: historyRow,  size: CGSize(width: 410, height: 72))
+    Mark(from: 8.7,  to: 10.6, centre: chargeRow,   size: CGSize(width: 410, height: 34)),
+    Mark(from: 20.6, to: 21.8, centre: outcomeText, size: CGSize(width: 410, height: 46)),
+    Mark(from: 25.5, to: 26.9, centre: historyRow,  size: CGSize(width: 410, height: 72))
 ]
 
 /// Where the camera looks: a zoom, the point it looks at, and where on screen that point sits.
@@ -241,38 +243,38 @@ struct Shot { let t: Double; let zoom: CGFloat; let fx: CGFloat; let fy: CGFloat
 func wide(_ t: Double, _ z: CGFloat = 1) -> Shot { Shot(t: t, zoom: z, fx: 540, fy: 675, sy: 675) }
 func look(_ t: Double, _ z: CGFloat, _ x: CGFloat, _ y: CGFloat) -> Shot { Shot(t: t, zoom: z, fx: x, fy: y, sy: 640) }
 let shots: [Shot] = [
-    wide(0), wide(3.4),
-    look(5.4, 1.7, 263, 587), look(7.4, 1.7, 263, 587),        // the tap
-    look(8.4, 1.15, 540, 470),                                  // both, while the key travels
-    look(9.4, 1.8, 813, 300), look(10.4, 1.8, 813, 300),        // charged
-    look(11.0, 1.15, 540, 470),
-    look(12.0, 1.7, 263, 610), look(13.4, 1.7, 263, 610),       // the charge on the phone
-    wide(14.6), wide(16.4),
-    look(17.4, 1.7, 263, 699), look(18.2, 1.7, 263, 699),       // Bill November
-    look(19.0, 1.15, 540, 560),
-    look(19.8, 1.75, 813, 420), look(20.4, 1.75, 813, 420),     // charged
-    look(21.2, 1.3, 540, 520), look(23.4, 1.32, 540, 530),      // the lost answer, and the wait
-    look(24.0, 1.15, 540, 640),
-    look(24.8, 1.75, 813, 580), look(25.4, 1.75, 813, 580),     // replayed
-    look(26.0, 1.15, 540, 680),
-    look(26.8, 1.7, 263, 740), look(27.6, 1.7, 263, 740),       // what the phone was told
-    look(28.4, 1.7, 330, 710), look(29.2, 1.7, 330, 710),       // Retry November
-    look(29.8, 1.15, 560, 700),
-    look(30.6, 1.6, 813, 760), look(31.6, 1.6, 813, 760),       // replayed, and the count
-    look(32.2, 1.15, 540, 780),
-    look(33.2, 1.7, 263, 830), look(34.2, 1.7, 263, 830),       // the history
-    wide(35.4), wide(38.4, 1.03)
+    wide(0), wide(2.6),
+    look(4.3, 1.7, 263, 587), look(5.9, 1.7, 263, 587),        // the tap
+    look(6.7, 1.15, 540, 470),                                  // both, while the key travels
+    look(7.3, 1.8, 813, 300), look(8.0, 1.8, 813, 300),         // charged
+    look(8.5, 1.15, 540, 470),
+    look(9.3, 1.7, 263, 610), look(10.4, 1.7, 263, 610),        // the charge on the phone
+    wide(11.3), wide(12.6),
+    look(13.3, 1.7, 263, 699), look(13.9, 1.7, 263, 699),       // Bill November
+    look(14.5, 1.15, 540, 560),
+    look(15.1, 1.75, 813, 420), look(15.7, 1.75, 813, 420),     // charged
+    look(16.3, 1.3, 540, 520), look(18.0, 1.32, 540, 530),      // the lost answer, and the wait
+    look(18.5, 1.15, 540, 640),
+    look(19.2, 1.75, 813, 580), look(19.7, 1.75, 813, 580),     // replayed
+    look(20.1, 1.15, 540, 680),
+    look(20.7, 1.7, 263, 740), look(21.4, 1.7, 263, 740),       // what the phone was told
+    look(22.3, 1.7, 330, 710), look(22.9, 1.7, 330, 710),       // Retry November
+    look(23.3, 1.15, 560, 700),
+    look(24.0, 1.6, 813, 760), look(24.8, 1.6, 813, 760),       // replayed, and the count
+    look(25.2, 1.15, 540, 780),
+    look(26.0, 1.7, 263, 830), look(26.9, 1.7, 263, 830),       // the history
+    wide(27.8), wide(30.2, 1.03)
 ]
 
 struct Caption { let from: Double; let to: Double; let step: String; let line: String }
 let captions: [Caption] = [
-    Caption(from: 5.0,  to: 7.8,  step: "1 / 4", line: "Tap. Face ID. The charge leaves with a new key."),
-    Caption(from: 8.4,  to: 13.6, step: "2 / 4", line: "Charged US$4.99, filed under that key."),
-    Caption(from: 17.0, to: 21.4, step: "3 / 4", line: "Apple bills November. One key for the month."),
-    Caption(from: 21.4, to: 23.6, step: "3 / 4", line: "The money moved. The answer never came back."),
-    Caption(from: 23.6, to: 27.8, step: "3 / 4", line: "Same key again: the same receipt, no new charge."),
-    Caption(from: 28.2, to: 34.4, step: "4 / 4", line: "Billing runs November again. Still one charge."),
-    Caption(from: 35.2, to: 38.4, step: "",      line: "One key per month. One charge.")
+    Caption(from: 4.0,  to: 6.2,  step: "1 / 4", line: "Tap. Face ID. The charge leaves with a new key."),
+    Caption(from: 6.6,  to: 10.6, step: "2 / 4", line: "Charged US$4.99, filed under that key."),
+    Caption(from: 13.0, to: 16.5, step: "3 / 4", line: "Apple bills November. One key for the month."),
+    Caption(from: 16.5, to: 18.2, step: "3 / 4", line: "The money moved. The answer never came back."),
+    Caption(from: 18.2, to: 21.6, step: "3 / 4", line: "Same key again: the same receipt, no new charge."),
+    Caption(from: 22.0, to: 26.9, step: "4 / 4", line: "Billing runs November again. Still one charge."),
+    Caption(from: 27.6, to: 30.2, step: "",      line: "One key per month. One charge.")
 ]
 
 var total: Double { timeline.last!.t }
@@ -375,10 +377,10 @@ func drawScene(_ ctx: CGContext, _ s: Double, film t: Double) {
     ctx.strokePath()
 
     for (i, line) in lines.enumerated() where t >= line.at {
-        let on = fade(t, line.at, 0.3)
+        let on = fade(t, line.at, 0.22)
         let top = entryTop + CGFloat(i) * entryStep + (1 - ease(on)) * 10
         // A line just written glows for a moment.
-        let glow = (1 - fade(t, line.at + 0.6, 0.8)) * on
+        let glow = (1 - fade(t, line.at + 0.4, 0.6)) * on
         if glow > 0.01 {
             roundRect(ctx, CGRect(x: panelX + 12, y: y(top + 90), width: panelRight - panelX - 24, height: 92), 12,
                       fill: line.colour.withAlphaComponent(0.10 * glow), stroke: line.colour.withAlphaComponent(0.5 * glow), width: 1.5)
@@ -410,17 +412,17 @@ func drawScene(_ ctx: CGContext, _ s: Double, film t: Double) {
     }
 
     // On the recording: the press, and what the answer changed.
-    for tap in taps where t >= tap.at && t < tap.at + 1.0 {
-        let k = clamp((t - tap.at) / 1.0)
+    for tap in taps where t >= tap.at && t < tap.at + 0.7 {
+        let k = clamp((t - tap.at) / 0.7)
         let o = p(tap.point)
         let r = 10 + 46 * ease(k)
         ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.9 * (1 - k)).cgColor); ctx.setLineWidth(3)
         ctx.strokeEllipse(in: CGRect(x: o.x - r, y: o.y - r, width: r * 2, height: r * 2))
-        ctx.setFillColor(NSColor.white.withAlphaComponent(0.5 * (1 - fade(t, tap.at + 0.15, 0.35))).cgColor)
+        ctx.setFillColor(NSColor.white.withAlphaComponent(0.5 * (1 - fade(t, tap.at + 0.1, 0.25))).cgColor)
         ctx.fillEllipse(in: CGRect(x: o.x - 18, y: o.y - 18, width: 36, height: 36))
     }
     for m in marks where t >= m.from && t <= m.to {
-        let on = min(fade(t, m.from, 0.35), 1 - fade(t, m.to - 0.4, 0.4))
+        let on = min(fade(t, m.from, 0.25), 1 - fade(t, m.to - 0.3, 0.3))
         let r = CGRect(x: m.centre.x - m.size.width / 2, y: y(m.centre.y) - m.size.height / 2,
                        width: m.size.width, height: m.size.height).insetBy(dx: -(1 - ease(on)) * 8, dy: -(1 - ease(on)) * 8)
         roundRect(ctx, r, 10, fill: green.withAlphaComponent(0.10 * on), stroke: green.withAlphaComponent(0.95 * on), width: 2.5)
@@ -428,18 +430,18 @@ func drawScene(_ ctx: CGContext, _ s: Double, film t: Double) {
 
     // Requests: the key leaves the button and lands on the line it causes.
     for r in requests where t >= r.from && t <= r.to + 0.5 {
-        let k = ease(clamp((t - r.from) / (r.to - r.from)))
+        let k = dart(clamp((t - r.from) / (r.to - r.from)))
         let end = row(r.row)
-        let gone = 1 - fade(t, r.to, 0.4)
+        let gone = 1 - fade(t, r.to, 0.3)
         trail(ctx, r.start, end, upTo: k, accent, alpha: 0.45 * gone)
-        let pop = glide(fade(t, r.from, 0.25))
-        chip(ctx, r.label, at: along(r.start, end, k), alpha: gone * pop, scale: 0.8 + 0.2 * pop)
+        let pop = glide(fade(t, r.from, 0.18))
+        chip(ctx, r.label, at: along(r.start, end, k), alpha: gone * pop, scale: 0.72 + 0.28 * pop)
     }
 
     // Answers: one dies on the way, the others land on what they change.
     for a in answers where t >= a.from {
         let start = row(a.row)
-        let k = ease(clamp((t - a.from) / (a.to - a.from)))
+        let k = dart(clamp((t - a.from) / (a.to - a.from)))
         if a.lost {
             let stop = along(start, a.end, lostReach)
             let gone = 1 - fade(t, silence.to, 0.5)
@@ -479,7 +481,7 @@ func drawFrame(_ ctx: CGContext, _ t: Double) {
     ctx.restoreGState()
 
     // The title at the opening and the close, when the whole frame is in view
-    let wideness = (t < 6 || t > 34) ? 1 - clamp(Double((cam.zoom - 1.02) / 0.25)) : 0
+    let wideness = (t < 4.5 || t > 26.8) ? 1 - clamp(Double((cam.zoom - 1.02) / 0.25)) : 0
     if wideness > 0.01 {
         text("One key per month", CGPoint(x: phoneX, y: y(92)), serif(40), ink, alpha: wideness)
         text("A SUBSCRIPTION — THE PHONE AND THE GATEWAY, SIDE BY SIDE", CGPoint(x: phoneX, y: y(128)), sans(14, .medium),
@@ -488,7 +490,7 @@ func drawFrame(_ ctx: CGContext, _ t: Double) {
 
     // Captions sit on a band of their own, outside the camera
     for c in captions where t >= c.from && t <= c.to {
-        let on = min(fade(t, c.from, 0.5), 1 - fade(t, c.to - 0.5, 0.5))
+        let on = min(fade(t, c.from, 0.35), 1 - fade(t, c.to - 0.4, 0.4))
         let band = CGRect(x: 0, y: 0, width: W, height: 190)
         ctx.saveGState()
         let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
@@ -530,7 +532,7 @@ try? FileManager.default.removeItem(at: url)
 let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
 let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
     AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: W, AVVideoHeightKey: H,
-    AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: 11_000_000,
+    AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: 6_000_000,
                                       AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel]
 ])
 input.expectsMediaDataInRealTime = false
