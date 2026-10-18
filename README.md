@@ -2,7 +2,8 @@
 
 A payments wallet: SwiftUI on iOS, a Go gateway behind it.
 
-https://github.com/nevzorov46/MetalCard/raw/main/docs/one-key-per-month.mp4
+**[Watch it run](docs/one-key-per-month.mp4)** — 36 seconds, recorded on a phone: subscribe,
+bill a month, lose the answer, retry, and the charge count stays at one.
 
 ## The problem
 
