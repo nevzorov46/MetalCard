@@ -159,7 +159,7 @@ func along(_ a: CGPoint, _ b: CGPoint, _ t: CGFloat) -> CGPoint {
 
 // MARK: - The edit
 
-// Где что на экране записи: тёмная тема, его iPhone.
+// Where things are on the recording's screen: dark theme, shot on a phone.
 let payButton   = screen(0.50, 0.511)
 let chargeRow   = screen(0.50, 0.4885)
 let billButton  = screen(0.50, 0.587)
@@ -167,45 +167,46 @@ let retryButton = screen(0.725, 0.585)
 let outcomeText = screen(0.50, 0.6555)
 let historyRow  = screen(0.50, 0.784)
 
-/// Время фильма → время записи. Плоские участки — паузы: экран стоит, пока летит ключ.
+/// Output time → source time. Flat stretches are holds: the screen waits while the key travels.
 ///
-/// На каждой строке шлюза камера стоит около двух секунд. Меньше — и прочитать строку
-/// не успеваешь: она появляется и тут же уезжает, а ради неё всё и затевалось.
-/// Разрешение на Face ID (5,5–7,0 с записи) пропущено — это след переустановки.
+/// The camera rests about two seconds on each gateway line. Any less and there is no time
+/// to read it: the line appears and is gone, and the line is the whole point.
+/// The Face ID permission prompt (5.5–7.0s of the recording) is skipped — it is a trace of
+/// a fresh install, not part of paying.
 let timeline: [(t: Double, s: Double)] = [
-    (0.0, 0.30), (0.4, 0.30),        // кошелёк, одно мгновение
-    (1.5, 3.00), (2.1, 3.30),        // к странице Apple, и нажатие
-    (2.7, 5.20),                     // лист поднялся
-    (3.3, 5.42),                     // нажал Pay with Wallet
-    (3.9, 5.46),                     // держим на нажатии
-    (5.1, 7.40),                     // Face ID — мимо разрешения
-    (5.9, 8.20),                     // списано
-    (7.9, 8.20),                     // стоим на строке шлюза
-    (8.7, 9.40),                     // подписан
+    (0.0, 0.30), (0.4, 0.30),        // the wallet, for a moment
+    (1.5, 3.00), (2.1, 3.30),        // to the merchant's page, and the tap
+    (2.7, 5.20),                     // the sheet is up
+    (3.3, 5.42),                     // tapped Pay with Wallet
+    (3.9, 5.46),                     // hold on the tap
+    (5.1, 7.40),                     // Face ID, past the permission prompt
+    (5.9, 8.20),                     // charged
+    (7.9, 8.20),                     // rest on the gateway line
+    (8.7, 9.40),                     // subscribed
     (9.5, 9.60),
-    (11.0, 11.35),                   // подходим к Back to wallet без спешки
-    (11.9, 11.85),                   // лист уходит — вдвое медленнее, чем снято
-    (12.6, 12.60),                   // осели в кошельке
-    (13.8, 15.00),                   // и только теперь к подписке
+    (11.0, 11.35),                   // up to Back to wallet, unhurried
+    (11.9, 11.85),                   // the sheet leaves, at half the speed it was shot
+    (12.6, 12.60),                   // settled in the wallet
+    (13.8, 15.00),                   // and only now to the subscription
     (14.6, 16.60),
-    (15.2, 16.85), (16.0, 16.90),    // Bill November, и держим
-    (17.0, 19.30),                   // ожидание
-    (17.6, 19.40),                   // списано
-    (19.6, 19.50),                   // стоим на строке, потом ответ теряется
-    (21.4, 19.60),                   // 800 мс тишины
-    (22.4, 19.65),                   // тот же ключ снова
-    (23.2, 19.70),                   // повтор из записи
-    (25.2, 19.80),                   // стоим на нём
+    (15.2, 16.85), (16.0, 16.90),    // Bill November, and hold
+    (17.0, 19.30),                   // the wait
+    (17.6, 19.40),                   // charged
+    (19.6, 19.50),                   // rest on the line, then the answer is lost
+    (21.4, 19.60),                   // 800 ms of silence
+    (22.4, 19.65),                   // the same key again
+    (23.2, 19.70),                   // replayed from the record
+    (25.2, 19.80),                   // rest on it
     (26.2, 21.00),
     (27.2, 23.40), (27.8, 23.60),    // Retry November
     (28.6, 23.70),
-    (29.6, 24.40),                   // повтор
-    (31.6, 24.60),                   // стоим: ноябрь всё ещё одно списание
+    (29.6, 24.40),                   // replayed
+    (31.6, 24.60),                   // rest: the month is still one charge
     (32.8, 25.60), (33.8, 27.00),
-    (36.4, 27.00)                    // держим
+    (36.4, 27.00)                    // hold
 ]
 
-/// Строки шлюза, по часам фильма. Номера списаний — те, что видны на записи.
+/// The gateway's lines, by the film's clock. The charge ids are the ones on screen.
 struct Line { let at: Double; let source: Double; let level: String; let head: String; let detail: String; let colour: NSColor }
 let lines: [Line] = [
     Line(at: 5.1,  source: 8.20,  level: "INFO", head: "charged", detail: "ch_c2d64fb9-2  US$4.99  charges=1", colour: ink),
@@ -216,10 +217,10 @@ let lines: [Line] = [
 ]
 let countAt = 31.0
 
-/// Когда проявляется панель шлюза — за мгновение до того, как к ней полетит первый ключ.
+/// When the gateway's panel fades in — a moment before the first key flies to it.
 let panelAppears = 3.1
 
-/// Ключ в пути к шлюзу: он вылетает из нажатой кнопки.
+/// A key on its way to the gateway: it leaves the button that was pressed.
 struct Request { let from: Double; let to: Double; let start: CGPoint; let row: Int; let label: String }
 let monthKey = "sub-0c90f8ad:2026-11"
 let requests: [Request] = [
@@ -229,8 +230,8 @@ let requests: [Request] = [
     Request(from: 28.6, to: 29.6, start: retryButton, row: 4, label: monthKey)
 ]
 
-/// Ответ на пути назад: он садится на то место экрана, которое меняет, или гибнет.
-/// Вылетает он внутри паузы на шлюзе — тогда видно, откуда он взялся.
+/// An answer on its way back: it lands on the part of the screen it changes, or it dies.
+/// It leaves during the hold on the gateway, so you can see where it came from.
 struct Answer { let from: Double; let to: Double; let row: Int; let end: CGPoint; let lost: Bool }
 let answers: [Answer] = [
     Answer(from: 6.9,  to: 7.7,  row: 0, end: chargeRow,   lost: false),
@@ -241,11 +242,11 @@ let answers: [Answer] = [
 let lostReach: CGFloat = 0.32
 let silence = (from: 19.0, to: 21.4, ms: 800.0)
 
-/// Нажатие по экрану.
+/// A press on the screen.
 let taps: [(at: Double, point: CGPoint)] = [(3.3, payButton), (15.2, billButton), (27.8, retryButton)]
 
-/// Что изменил ответ — обводится прямо на записи. Каждая рамка ждёт, пока то, что она
-/// обводит, появится на экране: пока идёт «Paying…», обводить ещё нечего.
+/// What the answer changed, outlined on the recording. Each outline waits until the thing
+/// it marks is on screen: while it still says "Paying…" there is nothing to outline.
 struct Mark { let from: Double; let to: Double; let centre: CGPoint; let size: CGSize }
 let marks: [Mark] = [
     Mark(from: 8.9,  to: 10.9, centre: chargeRow,   size: CGSize(width: 410, height: 34)),
@@ -253,31 +254,31 @@ let marks: [Mark] = [
     Mark(from: 32.2, to: 34.2, centre: historyRow,  size: CGSize(width: 410, height: 92))
 ]
 
-/// Куда смотрит камера: приближение, точка взгляда и где эта точка на экране.
+/// Where the camera looks: a zoom, the point it looks at, and where that point sits.
 struct Shot { let t: Double; let zoom: CGFloat; let fx: CGFloat; let fy: CGFloat; let sy: CGFloat }
 func wide(_ t: Double, _ z: CGFloat = 1) -> Shot { Shot(t: t, zoom: z, fx: 540, fy: 675, sy: 675) }
 func look(_ t: Double, _ z: CGFloat, _ x: CGFloat, _ y: CGFloat) -> Shot { Shot(t: t, zoom: z, fx: x, fy: y, sy: 640) }
 let shots: [Shot] = [
-    look(0, 1.45, 263, 560), look(1.2, 1.5, 263, 600),         // только телефон: шлюза ещё нет
-    look(2.3, 1.7, 263, 640), look(3.9, 1.7, 263, 640),        // нажатие
-    look(4.6, 1.15, 540, 470),                                  // оба, пока летит ключ
-    look(5.2, 1.8, 813, 300), look(7.3, 1.8, 813, 300),         // charged — стоим и читаем
+    look(0, 1.45, 263, 560), look(1.2, 1.5, 263, 600),         // the phone alone: no gateway yet
+    look(2.3, 1.7, 263, 640), look(3.9, 1.7, 263, 640),        // the tap
+    look(4.6, 1.15, 540, 470),                                  // both, while the key travels
+    look(5.2, 1.8, 813, 300), look(7.3, 1.8, 813, 300),         // charged — rest and read
     look(7.9, 1.15, 540, 470),
-    look(8.6, 1.7, 263, 620), look(12.3, 1.68, 263, 650),       // стоим, пока уходит лист
-    wide(13.9),                                                 // и только теперь отъезжаем
+    look(8.6, 1.7, 263, 620), look(12.3, 1.68, 263, 650),       // held still while the sheet leaves
+    wide(13.9),                                                 // and only now pull back
     look(15.2, 1.7, 263, 720), look(16.0, 1.7, 263, 720),       // Bill November
     look(16.5, 1.15, 540, 560),
-    look(17.0, 1.75, 813, 420), look(19.6, 1.75, 813, 420),     // charged — стоим
-    look(20.4, 1.3, 540, 520), look(21.4, 1.32, 540, 530),      // потерянный ответ и тишина
+    look(17.0, 1.75, 813, 420), look(19.6, 1.75, 813, 420),     // charged — rest
+    look(20.4, 1.3, 540, 520), look(21.4, 1.32, 540, 530),      // the lost answer, and the wait
     look(21.9, 1.15, 540, 640),
-    look(22.4, 1.75, 813, 580), look(25.2, 1.75, 813, 580),     // replayed — стоим
+    look(22.4, 1.75, 813, 580), look(25.2, 1.75, 813, 580),     // replayed — rest
     look(25.8, 1.15, 540, 680),
-    look(26.4, 1.7, 263, 760), look(27.0, 1.7, 263, 760),       // что увидел телефон
+    look(26.4, 1.7, 263, 760), look(27.0, 1.7, 263, 760),       // what the phone was told
     look(27.8, 1.7, 330, 730), look(28.6, 1.7, 330, 730),       // Retry November
     look(29.0, 1.15, 560, 700),
-    look(29.6, 1.6, 813, 760), look(31.8, 1.6, 813, 760),       // replayed и счёт — стоим
+    look(29.6, 1.6, 813, 760), look(31.8, 1.6, 813, 760),       // replayed, and the count — rest
     look(32.2, 1.15, 540, 780),
-    look(32.8, 1.7, 263, 880), look(33.9, 1.7, 263, 880),       // история списаний
+    look(32.8, 1.7, 263, 880), look(33.9, 1.7, 263, 880),       // the billing history
     wide(34.9), wide(36.4, 1.03)
 ]
 
@@ -380,8 +381,8 @@ func drawScene(_ ctx: CGContext, _ s: Double, film t: Double) {
         ctx.strokePath()
     }
 
-    // Шлюз появляется вместе с первым ключом: пустая панель в полкадра с самого начала
-    // ничего не объясняет, а только отнимает место у телефона.
+    // The gateway arrives with the first key: an empty panel filling half the frame from
+    // the start explains nothing and only takes room from the phone.
     let panelOn = fade(t, panelAppears, 1.0)
     ctx.saveGState()
     ctx.setAlpha(panelOn)
