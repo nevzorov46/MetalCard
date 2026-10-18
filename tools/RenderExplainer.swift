@@ -183,37 +183,38 @@ let timeline: [(t: Double, s: Double)] = [
     (7.9, 8.20),                     // стоим на строке шлюза
     (8.7, 9.40),                     // подписан
     (9.5, 9.60),
-    (10.6, 11.90),                   // назад в кошелёк
-    (11.6, 12.80),                   // кошелёк под камерой, не на перемотке
-    (12.6, 15.00),                   // и только теперь к подписке
-    (13.4, 16.60),
-    (14.0, 16.85), (14.8, 16.90),    // Bill November, и держим
-    (15.8, 19.30),                   // ожидание
-    (16.4, 19.40),                   // списано
-    (18.4, 19.50),                   // стоим на строке, потом ответ теряется
-    (20.2, 19.60),                   // 800 мс тишины
-    (21.2, 19.65),                   // тот же ключ снова
-    (22.0, 19.70),                   // повтор из записи
-    (24.0, 19.80),                   // стоим на нём
-    (25.0, 21.00),
-    (26.0, 23.40), (26.6, 23.60),    // Retry November
-    (27.4, 23.70),
-    (28.4, 24.40),                   // повтор
-    (30.4, 24.60),                   // стоим: ноябрь всё ещё одно списание
-    (31.6, 25.60), (32.6, 27.00),
-    (35.2, 27.00)                    // держим
+    (11.0, 11.35),                   // подходим к Back to wallet без спешки
+    (11.9, 11.85),                   // лист уходит — вдвое медленнее, чем снято
+    (12.6, 12.60),                   // осели в кошельке
+    (13.8, 15.00),                   // и только теперь к подписке
+    (14.6, 16.60),
+    (15.2, 16.85), (16.0, 16.90),    // Bill November, и держим
+    (17.0, 19.30),                   // ожидание
+    (17.6, 19.40),                   // списано
+    (19.6, 19.50),                   // стоим на строке, потом ответ теряется
+    (21.4, 19.60),                   // 800 мс тишины
+    (22.4, 19.65),                   // тот же ключ снова
+    (23.2, 19.70),                   // повтор из записи
+    (25.2, 19.80),                   // стоим на нём
+    (26.2, 21.00),
+    (27.2, 23.40), (27.8, 23.60),    // Retry November
+    (28.6, 23.70),
+    (29.6, 24.40),                   // повтор
+    (31.6, 24.60),                   // стоим: ноябрь всё ещё одно списание
+    (32.8, 25.60), (33.8, 27.00),
+    (36.4, 27.00)                    // держим
 ]
 
 /// Строки шлюза, по часам фильма. Номера списаний — те, что видны на записи.
 struct Line { let at: Double; let source: Double; let level: String; let head: String; let detail: String; let colour: NSColor }
 let lines: [Line] = [
     Line(at: 5.1,  source: 8.20,  level: "INFO", head: "charged", detail: "ch_c2d64fb9-2  US$4.99  charges=1", colour: ink),
-    Line(at: 15.8, source: 19.40, level: "INFO", head: "charged", detail: "key=sub-0c90f8ad:2026-11", colour: ink),
-    Line(at: 18.4, source: 19.50, level: "WARN", head: "response dropped", detail: "ch_5eea4c4a-d  the money moved", colour: rose),
-    Line(at: 21.2, source: 19.65, level: "INFO", head: "replayed — not charged again", detail: "ch_5eea4c4a-d  charges=1", colour: green),
-    Line(at: 28.4, source: 24.40, level: "INFO", head: "replayed — not charged again", detail: "ch_5eea4c4a-d  charges=1", colour: green)
+    Line(at: 17.0, source: 19.40, level: "INFO", head: "charged", detail: "key=sub-0c90f8ad:2026-11", colour: ink),
+    Line(at: 19.6, source: 19.50, level: "WARN", head: "response dropped", detail: "ch_5eea4c4a-d  the money moved", colour: rose),
+    Line(at: 22.4, source: 19.65, level: "INFO", head: "replayed — not charged again", detail: "ch_5eea4c4a-d  charges=1", colour: green),
+    Line(at: 29.6, source: 24.40, level: "INFO", head: "replayed — not charged again", detail: "ch_5eea4c4a-d  charges=1", colour: green)
 ]
-let countAt = 29.8
+let countAt = 31.0
 
 /// Когда проявляется панель шлюза — за мгновение до того, как к ней полетит первый ключ.
 let panelAppears = 3.1
@@ -223,9 +224,9 @@ struct Request { let from: Double; let to: Double; let start: CGPoint; let row: 
 let monthKey = "sub-0c90f8ad:2026-11"
 let requests: [Request] = [
     Request(from: 3.9,  to: 5.1,  start: payButton,   row: 0, label: "POST · new key"),
-    Request(from: 14.8, to: 15.8, start: billButton,  row: 1, label: monthKey),
-    Request(from: 20.2, to: 21.2, start: billButton,  row: 3, label: monthKey),
-    Request(from: 27.4, to: 28.4, start: retryButton, row: 4, label: monthKey)
+    Request(from: 16.0, to: 17.0, start: billButton,  row: 1, label: monthKey),
+    Request(from: 21.4, to: 22.4, start: billButton,  row: 3, label: monthKey),
+    Request(from: 28.6, to: 29.6, start: retryButton, row: 4, label: monthKey)
 ]
 
 /// Ответ на пути назад: он садится на то место экрана, которое меняет, или гибнет.
@@ -233,23 +234,23 @@ let requests: [Request] = [
 struct Answer { let from: Double; let to: Double; let row: Int; let end: CGPoint; let lost: Bool }
 let answers: [Answer] = [
     Answer(from: 6.9,  to: 7.7,  row: 0, end: chargeRow,   lost: false),
-    Answer(from: 17.0, to: 17.8, row: 1, end: outcomeText, lost: true),
-    Answer(from: 22.2, to: 23.0, row: 3, end: outcomeText, lost: false),
-    Answer(from: 29.0, to: 29.8, row: 4, end: historyRow,  lost: false)
+    Answer(from: 18.2, to: 19.0, row: 1, end: outcomeText, lost: true),
+    Answer(from: 23.4, to: 24.2, row: 3, end: outcomeText, lost: false),
+    Answer(from: 30.2, to: 31.0, row: 4, end: historyRow,  lost: false)
 ]
 let lostReach: CGFloat = 0.32
-let silence = (from: 17.8, to: 20.2, ms: 800.0)
+let silence = (from: 19.0, to: 21.4, ms: 800.0)
 
 /// Нажатие по экрану.
-let taps: [(at: Double, point: CGPoint)] = [(3.3, payButton), (14.0, billButton), (26.6, retryButton)]
+let taps: [(at: Double, point: CGPoint)] = [(3.3, payButton), (15.2, billButton), (27.8, retryButton)]
 
 /// Что изменил ответ — обводится прямо на записи. Каждая рамка ждёт, пока то, что она
 /// обводит, появится на экране: пока идёт «Paying…», обводить ещё нечего.
 struct Mark { let from: Double; let to: Double; let centre: CGPoint; let size: CGSize }
 let marks: [Mark] = [
-    Mark(from: 8.9,  to: 10.6, centre: chargeRow,   size: CGSize(width: 410, height: 34)),
-    Mark(from: 24.2, to: 25.8, centre: outcomeText, size: CGSize(width: 410, height: 72)),
-    Mark(from: 31.0, to: 33.0, centre: historyRow,  size: CGSize(width: 410, height: 92))
+    Mark(from: 8.9,  to: 10.9, centre: chargeRow,   size: CGSize(width: 410, height: 34)),
+    Mark(from: 25.4, to: 27.0, centre: outcomeText, size: CGSize(width: 410, height: 72)),
+    Mark(from: 32.2, to: 34.2, centre: historyRow,  size: CGSize(width: 410, height: 92))
 ]
 
 /// Куда смотрит камера: приближение, точка взгляда и где эта точка на экране.
@@ -262,33 +263,33 @@ let shots: [Shot] = [
     look(4.6, 1.15, 540, 470),                                  // оба, пока летит ключ
     look(5.2, 1.8, 813, 300), look(7.3, 1.8, 813, 300),         // charged — стоим и читаем
     look(7.9, 1.15, 540, 470),
-    look(8.6, 1.7, 263, 620), look(10.3, 1.7, 263, 620),        // списание на телефоне
-    wide(11.8), wide(14.5),
-    look(14.0, 1.7, 263, 720), look(14.8, 1.7, 263, 720),       // Bill November
-    look(15.3, 1.15, 540, 560),
-    look(15.8, 1.75, 813, 420), look(18.0, 1.75, 813, 420),     // charged — стоим
-    look(18.8, 1.3, 540, 520), look(20.2, 1.32, 540, 530),      // потерянный ответ и тишина
-    look(20.7, 1.15, 540, 640),
-    look(21.2, 1.75, 813, 580), look(23.4, 1.75, 813, 580),     // replayed — стоим
-    look(24.0, 1.15, 540, 680),
-    look(24.6, 1.7, 263, 760), look(25.7, 1.7, 263, 760),       // что увидел телефон
-    look(26.6, 1.7, 330, 730), look(27.4, 1.7, 330, 730),       // Retry November
-    look(27.8, 1.15, 560, 700),
-    look(28.4, 1.6, 813, 760), look(30.6, 1.6, 813, 760),       // replayed и счёт — стоим
-    look(31.0, 1.15, 540, 780),
-    look(31.6, 1.7, 263, 880), look(32.7, 1.7, 263, 880),       // история списаний
-    wide(33.6), wide(35.2, 1.03)
+    look(8.6, 1.7, 263, 620), look(12.3, 1.68, 263, 650),       // стоим, пока уходит лист
+    wide(13.9),                                                 // и только теперь отъезжаем
+    look(15.2, 1.7, 263, 720), look(16.0, 1.7, 263, 720),       // Bill November
+    look(16.5, 1.15, 540, 560),
+    look(17.0, 1.75, 813, 420), look(19.6, 1.75, 813, 420),     // charged — стоим
+    look(20.4, 1.3, 540, 520), look(21.4, 1.32, 540, 530),      // потерянный ответ и тишина
+    look(21.9, 1.15, 540, 640),
+    look(22.4, 1.75, 813, 580), look(25.2, 1.75, 813, 580),     // replayed — стоим
+    look(25.8, 1.15, 540, 680),
+    look(26.4, 1.7, 263, 760), look(27.0, 1.7, 263, 760),       // что увидел телефон
+    look(27.8, 1.7, 330, 730), look(28.6, 1.7, 330, 730),       // Retry November
+    look(29.0, 1.15, 560, 700),
+    look(29.6, 1.6, 813, 760), look(31.8, 1.6, 813, 760),       // replayed и счёт — стоим
+    look(32.2, 1.15, 540, 780),
+    look(32.8, 1.7, 263, 880), look(33.9, 1.7, 263, 880),       // история списаний
+    wide(34.9), wide(36.4, 1.03)
 ]
 
 struct Caption { let from: Double; let to: Double; let step: String; let line: String }
 let captions: [Caption] = [
     Caption(from: 2.9,  to: 5.5,  step: "1 / 4", line: "Tap. Face ID. The charge leaves with a new key."),
-    Caption(from: 6.1,  to: 10.8, step: "2 / 4", line: "Charged US$4.99, filed under that key."),
-    Caption(from: 13.6, to: 17.8, step: "3 / 4", line: "Apple bills November. One key for the month."),
-    Caption(from: 17.8, to: 20.6, step: "3 / 4", line: "The money moved. The answer never came back."),
-    Caption(from: 20.6, to: 25.8, step: "3 / 4", line: "Same key again: the same receipt, no new charge."),
-    Caption(from: 26.2, to: 33.0, step: "4 / 4", line: "Billing runs November again. Still one charge."),
-    Caption(from: 33.4, to: 35.2, step: "",      line: "One key per month. One charge.")
+    Caption(from: 6.1,  to: 11.4, step: "2 / 4", line: "Charged US$4.99, filed under that key."),
+    Caption(from: 14.8, to: 19.0, step: "3 / 4", line: "Apple bills November. One key for the month."),
+    Caption(from: 19.0, to: 21.8, step: "3 / 4", line: "The money moved. The answer never came back."),
+    Caption(from: 21.8, to: 27.0, step: "3 / 4", line: "Same key again: the same receipt, no new charge."),
+    Caption(from: 27.4, to: 34.2, step: "4 / 4", line: "Billing runs November again. Still one charge."),
+    Caption(from: 34.6, to: 36.4, step: "",      line: "One key per month. One charge.")
 ]
 
 var total: Double { timeline.last!.t }
@@ -500,7 +501,7 @@ func drawFrame(_ ctx: CGContext, _ t: Double) {
     ctx.restoreGState()
 
     // The title at the opening and the close, when the whole frame is in view
-    let wideness = t > 33.0 ? 1 - clamp(Double((cam.zoom - 1.02) / 0.25)) : 0
+    let wideness = t > 34.2 ? 1 - clamp(Double((cam.zoom - 1.02) / 0.25)) : 0
     if wideness > 0.01 {
         text("One key per month", CGPoint(x: phoneX, y: y(92)), serif(40), ink, alpha: wideness)
         text("A SUBSCRIPTION — THE PHONE AND THE GATEWAY, SIDE BY SIDE", CGPoint(x: phoneX, y: y(128)), sans(14, .medium),
