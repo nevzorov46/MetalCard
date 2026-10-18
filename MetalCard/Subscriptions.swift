@@ -12,7 +12,7 @@ struct Plan: Hashable, Sendable {
     let symbol: String
     let price: Money
 
-    static let logicPro = Plan(name: "Logic Pro", seller: "Apple", descriptor: "APPLE.COM/BILL",
+    static let logicPro = Plan(name: "Logic Pro X", seller: "Apple", descriptor: "APPLE.COM/BILL",
                                domain: "apple.com", symbol: "pianokeys",
                                price: Money(minorUnits: 499, currency: .usd))
 }
