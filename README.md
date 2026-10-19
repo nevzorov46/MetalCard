@@ -1,9 +1,11 @@
-# One key per month
+# Metal Card
 
 A payments wallet: SwiftUI on iOS, a Go gateway behind it.
+One key per purchase, one charge — whatever the network does.
 
-**[Watch it run](docs/one-key-per-month.mp4)** — 36 seconds, recorded on a phone: subscribe,
-bill a month, lose the answer, retry, and the charge count stays at one.
+**[Watch it run](docs/one-key-per-month.mp4)** — 36 seconds, recorded on a phone: subscribe to
+a plan, bill a month, lose the answer on the way back, retry, and watch the charge count
+stay at one.
 
 ## The problem
 

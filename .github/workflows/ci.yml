@@ -11,21 +11,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Build and test
+  ios:
+    name: iOS — build and test
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_26.app
-
-      - name: Show versions
+      # Нельзя жёстко называть версию Xcode: образ раннера обновляется, и путь,
+      # верный вчера, завтра перестаёт существовать. Берём самую свежую из установленных.
+      - name: Select the newest Xcode
         run: |
+          latest=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Using $latest"
+          sudo xcode-select -s "$latest"
           xcodebuild -version
-          swift --version
+
+      # Имя симулятора — та же ловушка: «iPhone 17 Pro» есть не на каждом образе.
+      # Спрашиваем у системы, что у неё есть, и берём самый свежий iPhone.
+      - name: Pick a simulator
+        id: sim
+        run: |
+          name=$(xcrun simctl list devices available --json | python3 -c "
+import json, sys
+devices = json.load(sys.stdin)['devices']
+names = [d['name'] for runtime in devices
+         for d in devices[runtime]
+         if 'iOS' in runtime and d['name'].startswith('iPhone')]
+print(sorted(names)[-1] if names else '')")
+          echo "Simulator: $name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - name: Test
         run: |
@@ -33,7 +49,7 @@ jobs:
           xcodebuild test \
             -project MetalCard.xcodeproj \
             -scheme MetalCard \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO
 
@@ -44,3 +60,23 @@ jobs:
           name: test-results
           path: TestResults.xcresult
           retention-days: 7
+
+  gateway:
+    name: Gateway — build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+
+      - name: Vet
+        working-directory: server
+        run: go vet ./...
+
+      - name: Test
+        working-directory: server
+        run: go test ./... -race
