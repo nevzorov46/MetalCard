@@ -33,13 +33,7 @@ jobs:
       - name: Pick a simulator
         id: sim
         run: |
-          name=$(xcrun simctl list devices available --json | python3 -c "
-import json, sys
-devices = json.load(sys.stdin)['devices']
-names = [d['name'] for runtime in devices
-         for d in devices[runtime]
-         if 'iOS' in runtime and d['name'].startswith('iPhone')]
-print(sorted(names)[-1] if names else '')")
+          name=$(xcrun simctl list devices available --json | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; n=[x['name'] for r in d for x in d[r] if 'iOS' in r and x['name'].startswith('iPhone')]; print(sorted(n)[-1] if n else '')")
           echo "Simulator: $name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
