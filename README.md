@@ -3,6 +3,8 @@
 A payments wallet: SwiftUI on iOS, a Go gateway behind it.
 One key per purchase, one charge — whatever the network does.
 
+<video src="https://github.com/nevzorov46/MetalCard/raw/main/docs/one-key-per-month.mp4" poster="https://github.com/nevzorov46/MetalCard/raw/main/docs/one-key-poster.jpg" width="300" controls muted loop playsinline></video>
+
 **[Watch it run](docs/one-key-per-month.mp4)** — 36 seconds, recorded on a phone: subscribe to
 a plan, bill a month, lose the answer on the way back, retry, and watch the charge count
 stay at one.
